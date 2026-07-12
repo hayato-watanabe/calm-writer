@@ -203,7 +203,10 @@ export default class CalmWriterPlugin extends Plugin {
 
 /** キーイベントを音の種類へ振り分ける。音を鳴らさないキーは null */
 function classifyKey(e: KeyboardEvent): KeyKind | null {
-	if (e.key === "Enter") return "enter";
+	if (e.key === "Enter") {
+		// IMEの変換確定Enterは従来のEnter音、実際の改行はキャリッジリターン音
+		return e.isComposing || e.keyCode === 229 ? "enter" : "return";
+	}
 	if (e.key === " " || e.key === "Spacebar") return "space";
 	if (e.key === "Backspace" || e.key === "Delete") return "delete";
 	// 日本語IMEの変換中でも打鍵ごとに音を返す

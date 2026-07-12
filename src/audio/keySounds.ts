@@ -1,7 +1,7 @@
 import { AudioEngine } from "./engine";
 
-/** キーの種類。種類ごとに音色を変える */
-export type KeyKind = "key" | "space" | "enter" | "delete";
+/** キーの種類。種類ごとに音色を変える。enter=IME確定など、return=実際の改行 */
+export type KeyKind = "key" | "space" | "enter" | "return" | "delete";
 
 export type KeySchemeId = "drop" | "typewriter" | "marimba" | "soft";
 
@@ -66,7 +66,7 @@ export class KeySoundPlayer {
 		if (kind === "space") {
 			freq = rand(340, 420);
 			dur = 0.2;
-		} else if (kind === "enter") {
+		} else if (kind === "enter" || kind === "return") {
 			freq = rand(240, 300);
 			dur = 0.34;
 			peak = 0.26;
@@ -80,13 +80,20 @@ export class KeySoundPlayer {
 		this.noiseHit(t, 3200, 0.015, 0.05 * level);
 	}
 
-	/** タイプライター: ノイズのクリック + 低域のタップ音。Enterでベルが鳴る */
+	/** タイプライター: ノイズのクリック + 低域のタップ音。確定Enterでベル、改行でキャリッジリターン */
 	private playTypewriter(kind: KeyKind, level: number): void {
 		const t = this.engine.context.currentTime;
 		if (kind === "enter") {
 			this.tone(t, 1318.5, 0.5, 0.1 * level); // ベル (E6)
 			this.noiseHit(t, 900, 0.05, 0.35 * level, "lowpass");
 			this.thump(t, 140, 80, 0.06, 0.3 * level);
+		} else if (kind === "return") {
+			// 実際の改行: レバーを引いてキャリッジが戻る「ガチャッ」
+			this.noiseHit(t, 2100, 0.02, 0.32 * level); // レバーのクリック
+			this.noiseSweep(t + 0.03, 1600, 750, 0.12, 0.2 * level); // キャリッジが滑る音
+			this.noiseHit(t + 0.14, 520, 0.06, 0.5 * level, "lowpass"); // 止まる瞬間のガチャ
+			this.thump(t + 0.14, 115, 62, 0.09, 0.42 * level);
+			this.noiseHit(t + 0.22, 700, 0.03, 0.16 * level, "lowpass"); // 小さな跳ね返り
 		} else if (kind === "space") {
 			this.noiseHit(t, 1800, 0.025, 0.3 * level);
 			this.thump(t, 120, 70, 0.06, 0.35 * level);
@@ -107,7 +114,7 @@ export class KeySoundPlayer {
 		if (kind === "space") {
 			freq = 392.0; // G4
 			dur = 0.5;
-		} else if (kind === "enter") {
+		} else if (kind === "enter" || kind === "return") {
 			freq = 261.63; // C4
 			dur = 0.8;
 			peak = 0.26;
@@ -126,7 +133,7 @@ export class KeySoundPlayer {
 	/** ソフト: こもったノイズだけの静かなタップ。夜中の執筆向け */
 	private playSoft(kind: KeyKind, level: number): void {
 		const t = this.engine.context.currentTime;
-		if (kind === "enter") {
+		if (kind === "enter" || kind === "return") {
 			this.noiseHit(t, 500, 0.05, 0.4 * level, "lowpass");
 			this.thump(t, 130, 80, 0.05, 0.15 * level);
 		} else if (kind === "space") {
@@ -200,6 +207,29 @@ export class KeySoundPlayer {
 		filter.connect(gain);
 		gain.connect(this.engine.output);
 		src.start(t, Math.random() * 1.5); // バッファのランダムな位置から
+		src.stop(t + dur + 0.05);
+	}
+
+	/** 中心周波数が滑らかに動くノイズ（キャリッジが滑る「シャーッ」） */
+	private noiseSweep(t: number, from: number, to: number, dur: number, peak: number): void {
+		if (peak <= 0) return;
+		const ctx = this.engine.context;
+		const src = ctx.createBufferSource();
+		src.buffer = this.engine.noiseBuffer;
+		const filter = ctx.createBiquadFilter();
+		filter.type = "bandpass";
+		filter.frequency.setValueAtTime(from, t);
+		filter.frequency.exponentialRampToValueAtTime(to, t + dur);
+		filter.Q.value = 1.2;
+		const gain = ctx.createGain();
+		gain.gain.setValueAtTime(0, t);
+		gain.gain.linearRampToValueAtTime(peak, t + 0.01);
+		gain.gain.setValueAtTime(peak, t + dur * 0.7);
+		gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+		src.connect(filter);
+		filter.connect(gain);
+		gain.connect(this.engine.output);
+		src.start(t, Math.random() * 1.5);
 		src.stop(t + dur + 0.05);
 	}
 

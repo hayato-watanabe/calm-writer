@@ -146,7 +146,7 @@ var KeySoundPlayer = class {
     if (kind === "space") {
       freq = rand(340, 420);
       dur = 0.2;
-    } else if (kind === "enter") {
+    } else if (kind === "enter" || kind === "return") {
       freq = rand(240, 300);
       dur = 0.34;
       peak = 0.26;
@@ -159,13 +159,19 @@ var KeySoundPlayer = class {
     this.chirp(t, freq, freq * 1.4, dur, peak * level);
     this.noiseHit(t, 3200, 0.015, 0.05 * level);
   }
-  /** タイプライター: ノイズのクリック + 低域のタップ音。Enterでベルが鳴る */
+  /** タイプライター: ノイズのクリック + 低域のタップ音。確定Enterでベル、改行でキャリッジリターン */
   playTypewriter(kind, level) {
     const t = this.engine.context.currentTime;
     if (kind === "enter") {
       this.tone(t, 1318.5, 0.5, 0.1 * level);
       this.noiseHit(t, 900, 0.05, 0.35 * level, "lowpass");
       this.thump(t, 140, 80, 0.06, 0.3 * level);
+    } else if (kind === "return") {
+      this.noiseHit(t, 2100, 0.02, 0.32 * level);
+      this.noiseSweep(t + 0.03, 1600, 750, 0.12, 0.2 * level);
+      this.noiseHit(t + 0.14, 520, 0.06, 0.5 * level, "lowpass");
+      this.thump(t + 0.14, 115, 62, 0.09, 0.42 * level);
+      this.noiseHit(t + 0.22, 700, 0.03, 0.16 * level, "lowpass");
     } else if (kind === "space") {
       this.noiseHit(t, 1800, 0.025, 0.3 * level);
       this.thump(t, 120, 70, 0.06, 0.35 * level);
@@ -185,7 +191,7 @@ var KeySoundPlayer = class {
     if (kind === "space") {
       freq = 392;
       dur = 0.5;
-    } else if (kind === "enter") {
+    } else if (kind === "enter" || kind === "return") {
       freq = 261.63;
       dur = 0.8;
       peak = 0.26;
@@ -203,7 +209,7 @@ var KeySoundPlayer = class {
   /** ソフト: こもったノイズだけの静かなタップ。夜中の執筆向け */
   playSoft(kind, level) {
     const t = this.engine.context.currentTime;
-    if (kind === "enter") {
+    if (kind === "enter" || kind === "return") {
       this.noiseHit(t, 500, 0.05, 0.4 * level, "lowpass");
       this.thump(t, 130, 80, 0.05, 0.15 * level);
     } else if (kind === "space") {
@@ -263,6 +269,28 @@ var KeySoundPlayer = class {
     gain.gain.setValueAtTime(0, t);
     gain.gain.linearRampToValueAtTime(peak, t + 2e-3);
     gain.gain.exponentialRampToValueAtTime(1e-4, t + Math.max(dur, 0.01));
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.engine.output);
+    src.start(t, Math.random() * 1.5);
+    src.stop(t + dur + 0.05);
+  }
+  /** 中心周波数が滑らかに動くノイズ（キャリッジが滑る「シャーッ」） */
+  noiseSweep(t, from, to, dur, peak) {
+    if (peak <= 0) return;
+    const ctx = this.engine.context;
+    const src = ctx.createBufferSource();
+    src.buffer = this.engine.noiseBuffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(from, t);
+    filter.frequency.exponentialRampToValueAtTime(to, t + dur);
+    filter.Q.value = 1.2;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(peak, t + 0.01);
+    gain.gain.setValueAtTime(peak, t + dur * 0.7);
+    gain.gain.exponentialRampToValueAtTime(1e-4, t + dur);
     src.connect(filter);
     filter.connect(gain);
     gain.connect(this.engine.output);
@@ -1057,7 +1085,9 @@ var CalmWriterPlugin = class extends import_obsidian2.Plugin {
   }
 };
 function classifyKey(e) {
-  if (e.key === "Enter") return "enter";
+  if (e.key === "Enter") {
+    return e.isComposing || e.keyCode === 229 ? "enter" : "return";
+  }
   if (e.key === " " || e.key === "Spacebar") return "space";
   if (e.key === "Backspace" || e.key === "Delete") return "delete";
   if (e.key === "Process" || e.isComposing) return "key";
