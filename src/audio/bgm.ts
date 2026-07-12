@@ -65,7 +65,13 @@ const MOODS: Record<BgmMoodId, MoodDef> = {
 	},
 };
 
-export const BGM_MOODS = MOODS;
+/** パネルや設定画面で使うムードの表示名 */
+export const BGM_MOOD_NAMES: Record<BgmMoodId, string> = {
+	aurora: "オーロラ",
+	night: "夜",
+	forest: "森",
+	calm: "凪",
+};
 
 interface Voice {
 	gain: GainNode;
@@ -171,8 +177,13 @@ export class BgmPlayer {
 		this.timers.add(timer);
 	}
 
+	get currentMood(): BgmMoodId {
+		return this.mood;
+	}
+
 	/** シーン切替時などにムードを入れ替える（短いフェードを挟む） */
 	switchMood(mood: BgmMoodId): void {
+		if (this.playing && this.mood === mood) return;
 		this.mood = mood;
 		if (!this.playing) return;
 		this.stop(1.2);

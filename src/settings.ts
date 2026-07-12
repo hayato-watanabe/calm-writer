@@ -1,5 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import { KEY_SCHEMES, KeySchemeId } from "./audio/keySounds";
+import { BGM_MOOD_NAMES, BgmMoodId } from "./audio/bgm";
 import { SCENES } from "./ambience/scenes";
 import type CalmWriterPlugin from "./main";
 
@@ -14,6 +15,7 @@ export interface CalmWriterSettings {
 	keySoundScheme: KeySchemeId;
 	keySoundVolume: number; // 0..1
 	bgmEnabled: boolean;
+	bgmMood: "auto" | BgmMoodId; // auto = シーン連動
 	bgmVolume: number; // 0..1
 	fontPreset: string;
 	customFont: string;
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: CalmWriterSettings = {
 	keySoundScheme: "drop",
 	keySoundVolume: 0.5,
 	bgmEnabled: true,
+	bgmMood: "auto",
 	bgmVolume: 0.4,
 	fontPreset: "",
 	customFont: "",
@@ -181,6 +184,21 @@ export class CalmWriterSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				})
 			);
+
+		new Setting(containerEl)
+			.setName("BGMのムード")
+			.setDesc("「シーン連動」はシーンに合わせて自動で選びます。")
+			.addDropdown((dd) => {
+				dd.addOption("auto", "シーン連動");
+				for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) dd.addOption(id, name);
+				dd.setValue(s.bgmMood).onChange(async (v) => {
+					s.bgmMood = v as CalmWriterSettings["bgmMood"];
+					if (this.plugin.bgm.playing) {
+						this.plugin.bgm.switchMood(this.plugin.effectiveMood());
+					}
+					await this.plugin.saveSettings();
+				});
+			});
 
 		new Setting(containerEl)
 			.setName("BGMの音量")

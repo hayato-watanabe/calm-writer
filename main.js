@@ -379,6 +379,12 @@ var MOODS = {
     level: 0.7
   }
 };
+var BGM_MOOD_NAMES = {
+  aurora: "\u30AA\u30FC\u30ED\u30E9",
+  night: "\u591C",
+  forest: "\u68EE",
+  calm: "\u51EA"
+};
 var BgmPlayer = class {
   constructor(engine) {
     this.engine = engine;
@@ -456,8 +462,12 @@ var BgmPlayer = class {
     }, fadeSeconds * 1e3 + 150);
     this.timers.add(timer);
   }
+  get currentMood() {
+    return this.mood;
+  }
   /** シーン切替時などにムードを入れ替える（短いフェードを挟む） */
   switchMood(mood) {
+    if (this.playing && this.mood === mood) return;
     this.mood = mood;
     if (!this.playing) return;
     this.stop(1.2);
@@ -763,6 +773,84 @@ function getScene(id) {
   return (_a = SCENES.find((s) => s.id === id)) != null ? _a : SCENES[0];
 }
 
+// src/ambience/panel.ts
+var ZenPanel = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+    this.root = null;
+  }
+  show() {
+    this.hide();
+    const root = document.body.createDiv({ cls: "calm-writer-panel" });
+    root.createDiv({ cls: "calm-writer-panel-hint" });
+    const body = root.createDiv({ cls: "calm-writer-panel-body" });
+    const scenes = this.section(body, "\u80CC\u666F");
+    for (const scene of SCENES) {
+      this.option(scenes, scene.name, "scene", scene.id, () => {
+        void this.plugin.setScene(scene.id, false);
+      });
+    }
+    const bgm = this.section(body, "BGM");
+    this.option(bgm, "\u30B7\u30FC\u30F3\u9023\u52D5", "bgm", "auto", () => {
+      void this.plugin.setBgmChoice("auto");
+    });
+    for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) {
+      this.option(bgm, name, "bgm", id, () => {
+        void this.plugin.setBgmChoice(id);
+      });
+    }
+    this.option(bgm, "\u30AA\u30D5", "bgm", "off", () => {
+      void this.plugin.setBgmChoice("off");
+    });
+    const keys = this.section(body, "\u6253\u9375\u97F3");
+    for (const [id, name] of Object.entries(KEY_SCHEMES)) {
+      this.option(keys, name, "key", id, () => {
+        void this.plugin.setKeySoundChoice(id);
+      });
+    }
+    this.option(keys, "\u30AA\u30D5", "key", "off", () => {
+      void this.plugin.setKeySoundChoice("off");
+    });
+    this.root = root;
+    this.refresh();
+  }
+  hide() {
+    var _a;
+    (_a = this.root) == null ? void 0 : _a.remove();
+    this.root = null;
+  }
+  /** 現在の設定に合わせて選択中ハイライトを付け直す */
+  refresh() {
+    if (!this.root) return;
+    const s = this.plugin.settings;
+    const active = {
+      scene: s.sceneId,
+      bgm: s.bgmEnabled ? s.bgmMood : "off",
+      key: s.keySoundsEnabled ? s.keySoundScheme : "off"
+    };
+    const options = this.root.querySelectorAll(".calm-writer-panel-option");
+    options.forEach((el) => {
+      var _a;
+      el.classList.toggle("is-active", active[(_a = el.dataset.group) != null ? _a : ""] === el.dataset.value);
+    });
+  }
+  section(parent, title) {
+    const sec = parent.createDiv({ cls: "calm-writer-panel-section" });
+    sec.createDiv({ cls: "calm-writer-panel-title", text: title });
+    return sec;
+  }
+  option(parent, label, group, value, onSelect) {
+    const btn = parent.createEl("button", { cls: "calm-writer-panel-option", text: label });
+    btn.dataset.group = group;
+    btn.dataset.value = value;
+    btn.addEventListener("mousedown", (e) => e.preventDefault());
+    btn.addEventListener("click", () => {
+      onSelect();
+      this.refresh();
+    });
+  }
+};
+
 // src/settings.ts
 var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
@@ -776,6 +864,7 @@ var DEFAULT_SETTINGS = {
   keySoundScheme: "drop",
   keySoundVolume: 0.5,
   bgmEnabled: true,
+  bgmMood: "auto",
   bgmVolume: 0.4,
   fontPreset: "",
   customFont: "",
@@ -869,6 +958,17 @@ var CalmWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
+    new import_obsidian.Setting(containerEl).setName("BGM\u306E\u30E0\u30FC\u30C9").setDesc("\u300C\u30B7\u30FC\u30F3\u9023\u52D5\u300D\u306F\u30B7\u30FC\u30F3\u306B\u5408\u308F\u305B\u3066\u81EA\u52D5\u3067\u9078\u3073\u307E\u3059\u3002").addDropdown((dd) => {
+      dd.addOption("auto", "\u30B7\u30FC\u30F3\u9023\u52D5");
+      for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) dd.addOption(id, name);
+      dd.setValue(s.bgmMood).onChange(async (v) => {
+        s.bgmMood = v;
+        if (this.plugin.bgm.playing) {
+          this.plugin.bgm.switchMood(this.plugin.effectiveMood());
+        }
+        await this.plugin.saveSettings();
+      });
+    });
     new import_obsidian.Setting(containerEl).setName("BGM\u306E\u97F3\u91CF").addSlider(
       (sl) => sl.setLimits(0, 100, 1).setValue(Math.round(s.bgmVolume * 100)).setDynamicTooltip().onChange(async (v) => {
         s.bgmVolume = v / 100;
@@ -931,6 +1031,7 @@ var CalmWriterPlugin = class extends import_obsidian2.Plugin {
     this.keySounds = new KeySoundPlayer(this.engine);
     this.bgm = new BgmPlayer(this.engine);
     this.particles = new ParticleLayer();
+    this.panel = new ZenPanel(this);
   }
   async onload() {
     await this.loadSettings();
@@ -991,12 +1092,14 @@ var CalmWriterPlugin = class extends import_obsidian2.Plugin {
     const scene = getScene(this.settings.sceneId);
     this.zen.enter(scene.id, this.settings.fullscreen);
     if (this.settings.particlesEnabled) this.particles.start(scene.particles);
-    if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(scene.mood);
+    if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(this.effectiveMood());
+    this.panel.show();
     this.engine.resume();
   }
   exitZen() {
     if (!this.zen.active) return;
     this.zen.exit();
+    this.panel.hide();
     this.particles.stop();
     this.bgm.stop();
   }
@@ -1008,8 +1111,11 @@ var CalmWriterPlugin = class extends import_obsidian2.Plugin {
     if (this.zen.active) {
       this.zen.applyScene(scene.id);
       this.refreshParticles();
-      this.bgm.switchMood(scene.mood);
+      if (this.bgm.playing && this.settings.bgmMood === "auto") {
+        this.bgm.switchMood(scene.mood);
+      }
     }
+    this.panel.refresh();
     if (notify) new import_obsidian2.Notice(`\u30B7\u30FC\u30F3: ${scene.name}`);
   }
   refreshParticles() {
@@ -1026,9 +1132,41 @@ var CalmWriterPlugin = class extends import_obsidian2.Plugin {
       this.bgm.stop();
       new import_obsidian2.Notice("BGM\u3092\u505C\u6B62\u3057\u307E\u3057\u305F");
     } else {
-      this.bgm.start(getScene(this.settings.sceneId).mood);
+      this.bgm.start(this.effectiveMood());
       new import_obsidian2.Notice("BGM\u3092\u518D\u751F\u3057\u307E\u3059");
     }
+  }
+  /** BGMのムード設定（シーン連動 or 固定）を実際のムードに解決する */
+  effectiveMood() {
+    return this.settings.bgmMood === "auto" ? getScene(this.settings.sceneId).mood : this.settings.bgmMood;
+  }
+  /** パネルからのBGM切り替え。オフ以外を選ぶと再生も始める */
+  async setBgmChoice(choice) {
+    if (choice === "off") {
+      this.settings.bgmEnabled = false;
+      this.bgm.stop();
+    } else {
+      this.settings.bgmEnabled = true;
+      this.settings.bgmMood = choice;
+      const mood = this.effectiveMood();
+      if (this.bgm.playing) this.bgm.switchMood(mood);
+      else this.bgm.start(mood);
+    }
+    await this.saveSettings();
+    this.panel.refresh();
+  }
+  /** パネルからの打鍵音切り替え。音色を選ぶとサンプルを鳴らす */
+  async setKeySoundChoice(choice) {
+    if (choice === "off") {
+      this.settings.keySoundsEnabled = false;
+    } else {
+      this.settings.keySoundsEnabled = true;
+      this.settings.keySoundScheme = choice;
+      this.applyAudioSettings();
+      this.keySounds.play("key");
+    }
+    await this.saveSettings();
+    this.panel.refresh();
   }
   applyAudioSettings() {
     this.keySounds.volume = this.settings.keySoundVolume;

@@ -162,6 +162,103 @@ body.calm-writer-zen ::-webkit-scrollbar {
 }
 
 /* ============================================================
+   クイックパネル（画面右端・ホバーで出現）
+   ============================================================ */
+
+.calm-writer-panel {
+	position: fixed;
+	top: 50%;
+	right: 0;
+	transform: translateY(-50%);
+	z-index: 5;
+	display: flex;
+	align-items: center;
+	/* 左側の余白ぶんまでホバー領域にして出しやすくする */
+	padding: 32px 14px 32px 36px;
+}
+
+/* ふだん見えているのは細いバーだけ */
+.calm-writer-panel-hint {
+	width: 4px;
+	height: 72px;
+	border-radius: 2px;
+	background: var(--calm-text, var(--text-muted));
+	opacity: 0.18;
+	transition: opacity 0.3s ease;
+}
+
+.calm-writer-panel-body {
+	position: absolute;
+	right: 14px;
+	top: 50%;
+	transform: translateY(-50%) translateX(10px);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.3s ease, transform 0.3s ease;
+	background: var(--calm-panel-bg, rgba(20, 26, 38, 0.6));
+	-webkit-backdrop-filter: blur(14px);
+	backdrop-filter: blur(14px);
+	border-radius: 14px;
+	padding: 14px 14px;
+	min-width: 132px;
+	max-height: 82vh;
+	overflow-y: auto;
+	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.calm-writer-panel:hover .calm-writer-panel-body {
+	opacity: 1;
+	transform: translateY(-50%) translateX(0);
+	pointer-events: auto;
+}
+
+.calm-writer-panel:hover .calm-writer-panel-hint {
+	opacity: 0;
+}
+
+.calm-writer-panel-section + .calm-writer-panel-section {
+	margin-top: 12px;
+}
+
+.calm-writer-panel-title {
+	font-size: 10px;
+	letter-spacing: 0.14em;
+	opacity: 0.55;
+	margin: 0 0 4px 10px;
+	color: var(--calm-text, var(--text-muted));
+}
+
+.calm-writer-panel-option {
+	display: block;
+	width: 100%;
+	text-align: left;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	color: var(--calm-text, var(--text-normal));
+	font-size: 12.5px;
+	line-height: 1.4;
+	padding: 4px 10px;
+	margin: 1px 0;
+	border-radius: 8px;
+	cursor: pointer;
+	opacity: 0.75;
+	height: auto;
+}
+
+.calm-writer-panel-option:hover {
+	background: color-mix(in srgb, currentColor 12%, transparent);
+	box-shadow: none;
+	opacity: 1;
+}
+
+.calm-writer-panel-option.is-active {
+	background: color-mix(in srgb, currentColor 20%, transparent);
+	opacity: 1;
+	font-weight: 600;
+}
+
+/* ============================================================
    シーン定義: 背景グラデーション & 文字色
    ============================================================ */
 
@@ -178,6 +275,7 @@ body.calm-writer-zen.calm-writer-scene-snowfield {
 	--calm-text-muted: #7d8fa3;
 	--calm-selection: rgba(120, 160, 200, 0.25);
 	--calm-vignette-color: rgba(70, 100, 140, 0.45);
+	--calm-panel-bg: rgba(255, 255, 255, 0.6);
 }
 
 /* 夜空 — 深い藍色に星がまたたく */
@@ -193,6 +291,7 @@ body.calm-writer-zen.calm-writer-scene-night {
 	--calm-text-muted: #6d7a99;
 	--calm-selection: rgba(120, 140, 220, 0.3);
 	--calm-vignette-color: rgba(0, 0, 10, 0.65);
+	--calm-panel-bg: rgba(12, 16, 30, 0.55);
 }
 
 /* 森 — 深緑の中に光の粒がのぼる */
@@ -208,6 +307,7 @@ body.calm-writer-zen.calm-writer-scene-forest {
 	--calm-text-muted: #7f957f;
 	--calm-selection: rgba(120, 200, 150, 0.22);
 	--calm-vignette-color: rgba(0, 15, 8, 0.55);
+	--calm-panel-bg: rgba(10, 20, 16, 0.55);
 }
 
 /* 白い紙 — 何もない温かな白 */
@@ -217,4 +317,5 @@ body.calm-writer-zen.calm-writer-scene-paper {
 	--calm-text-muted: #a09a8c;
 	--calm-selection: rgba(180, 160, 120, 0.28);
 	--calm-vignette-color: rgba(90, 80, 60, 0.35);
+	--calm-panel-bg: rgba(255, 253, 247, 0.65);
 }

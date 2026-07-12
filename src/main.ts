@@ -1,10 +1,11 @@
 import { Notice, Plugin } from "obsidian";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { AudioEngine } from "./audio/engine";
-import { KeyKind, KeySoundPlayer } from "./audio/keySounds";
-import { BgmPlayer } from "./audio/bgm";
+import { KeyKind, KeySchemeId, KeySoundPlayer } from "./audio/keySounds";
+import { BgmMoodId, BgmPlayer } from "./audio/bgm";
 import { ParticleLayer } from "./ambience/particles";
 import { ZenController } from "./ambience/zenMode";
+import { ZenPanel } from "./ambience/panel";
 import { getScene, SCENES } from "./ambience/scenes";
 import { CalmWriterSettings, CalmWriterSettingTab, DEFAULT_SETTINGS } from "./settings";
 
@@ -22,6 +23,7 @@ export default class CalmWriterPlugin extends Plugin {
 	keySounds = new KeySoundPlayer(this.engine);
 	bgm = new BgmPlayer(this.engine);
 	particles = new ParticleLayer();
+	panel = new ZenPanel(this);
 	zen!: ZenController;
 
 	async onload(): Promise<void> {
@@ -93,13 +95,15 @@ export default class CalmWriterPlugin extends Plugin {
 		const scene = getScene(this.settings.sceneId);
 		this.zen.enter(scene.id, this.settings.fullscreen);
 		if (this.settings.particlesEnabled) this.particles.start(scene.particles);
-		if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(scene.mood);
+		if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(this.effectiveMood());
+		this.panel.show();
 		this.engine.resume();
 	}
 
 	exitZen(): void {
 		if (!this.zen.active) return;
 		this.zen.exit();
+		this.panel.hide();
 		this.particles.stop();
 		this.bgm.stop();
 	}
@@ -112,8 +116,12 @@ export default class CalmWriterPlugin extends Plugin {
 		if (this.zen.active) {
 			this.zen.applyScene(scene.id);
 			this.refreshParticles();
-			this.bgm.switchMood(scene.mood);
+			// BGMがシーン連動のときだけムードを追従させる
+			if (this.bgm.playing && this.settings.bgmMood === "auto") {
+				this.bgm.switchMood(scene.mood);
+			}
 		}
+		this.panel.refresh();
 		if (notify) new Notice(`シーン: ${scene.name}`);
 	}
 
@@ -133,9 +141,46 @@ export default class CalmWriterPlugin extends Plugin {
 			this.bgm.stop();
 			new Notice("BGMを停止しました");
 		} else {
-			this.bgm.start(getScene(this.settings.sceneId).mood);
+			this.bgm.start(this.effectiveMood());
 			new Notice("BGMを再生します");
 		}
+	}
+
+	/** BGMのムード設定（シーン連動 or 固定）を実際のムードに解決する */
+	effectiveMood(): BgmMoodId {
+		return this.settings.bgmMood === "auto"
+			? getScene(this.settings.sceneId).mood
+			: this.settings.bgmMood;
+	}
+
+	/** パネルからのBGM切り替え。オフ以外を選ぶと再生も始める */
+	async setBgmChoice(choice: "auto" | "off" | BgmMoodId): Promise<void> {
+		if (choice === "off") {
+			this.settings.bgmEnabled = false;
+			this.bgm.stop();
+		} else {
+			this.settings.bgmEnabled = true;
+			this.settings.bgmMood = choice;
+			const mood = this.effectiveMood();
+			if (this.bgm.playing) this.bgm.switchMood(mood);
+			else this.bgm.start(mood);
+		}
+		await this.saveSettings();
+		this.panel.refresh();
+	}
+
+	/** パネルからの打鍵音切り替え。音色を選ぶとサンプルを鳴らす */
+	async setKeySoundChoice(choice: KeySchemeId | "off"): Promise<void> {
+		if (choice === "off") {
+			this.settings.keySoundsEnabled = false;
+		} else {
+			this.settings.keySoundsEnabled = true;
+			this.settings.keySoundScheme = choice;
+			this.applyAudioSettings();
+			this.keySounds.play("key");
+		}
+		await this.saveSettings();
+		this.panel.refresh();
 	}
 
 	applyAudioSettings(): void {
