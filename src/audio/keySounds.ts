@@ -19,6 +19,7 @@ const MIN_INTERVAL_MS = 40;
 const MARIMBA_NOTES = [523.25, 587.33, 659.25, 783.99, 880.0];
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
+const lerp = (a: number, b: number, x: number) => a + (b - a) * x;
 
 /**
  * 打鍵音をWeb Audioでリアルタイム合成するプレイヤー。
@@ -58,26 +59,52 @@ export class KeySoundPlayer {
 		}
 	}
 
-	/** 水滴: 上方向に軽くチャープするサイン波 + 高域のきらめき */
+	/**
+	 * 水滴: 1打ごとに「滴の大きさ」を決め、そこから
+	 * 音程・長さ・跳ね上がり方・水面の共鳴を連動して変える。
+	 * 実際の水滴のように、同じ音は二度と鳴らない。
+	 */
 	private playDrop(kind: KeyKind, level: number): void {
-		let freq = rand(620, 980);
-		let dur = 0.16;
+		const t = this.engine.context.currentTime;
+
+		// 滴の大きさ (0=小粒, 1=大粒)。キー種別で範囲を変える
+		let size = Math.random();
 		let peak = 0.22;
+		let freqScale = 1;
 		if (kind === "space") {
-			freq = rand(340, 420);
-			dur = 0.2;
+			size = rand(0.55, 0.85);
+			freqScale = 0.62;
 		} else if (kind === "enter" || kind === "return") {
-			freq = rand(240, 300);
-			dur = 0.34;
+			size = rand(0.8, 1);
+			freqScale = 0.55;
 			peak = 0.26;
 		} else if (kind === "delete") {
-			freq = rand(480, 560);
-			dur = 0.1;
+			size = rand(0, 0.3);
 			peak = 0.16;
 		}
-		const t = this.engine.context.currentTime;
-		this.chirp(t, freq, freq * 1.4, dur, peak * level);
-		this.noiseHit(t, 3200, 0.015, 0.05 * level);
+
+		// 大きい粒ほど低く・長く鳴る
+		const freq = lerp(1050, 480, size) * freqScale * rand(0.92, 1.08);
+		const dur = lerp(0.09, 0.3, size) * rand(0.85, 1.15);
+		// 跳ね上がりの強さと速さも毎回変える
+		const bend = rand(1.12, 1.75);
+		const bendTime = dur * rand(0.45, 0.85);
+		this.chirp(t, freq, freq * bend, bendTime, dur, peak * level);
+
+		// 高域のきらめき（当たり方が毎回違う）
+		this.noiseHit(t, rand(2600, 4200), rand(0.008, 0.02), rand(0.03, 0.07) * level);
+
+		// 大粒は水面の低い「ぼちゃ」という共鳴を伴う
+		if (size > 0.45) {
+			this.thump(t + 0.005, freq * 0.28, freq * 0.2, dur * 0.8, 0.1 * size * level);
+		}
+
+		// ときどき跳ねた滴がもう一度小さく落ちる（二度鳴り）
+		if (kind === "key" && Math.random() < 0.28) {
+			const f2 = freq * rand(1.15, 1.45);
+			const d2 = dur * rand(0.5, 0.75);
+			this.chirp(t + rand(0.045, 0.09), f2, f2 * rand(1.2, 1.5), d2 * 0.6, d2, peak * 0.4 * level);
+		}
 	}
 
 	/** タイプライター: ノイズのクリック + 低域のタップ音。確定Enterでベル、改行でキャリッジリターン */
@@ -165,14 +192,14 @@ export class KeySoundPlayer {
 		osc.stop(t + dur + 0.05);
 	}
 
-	/** ピッチが滑らかに動くサイン波（水滴の「ぴちょん」） */
-	private chirp(t: number, from: number, to: number, dur: number, peak: number): void {
+	/** ピッチが滑らかに動くサイン波（水滴の「ぴちょん」）。bendTime = ピッチ変化にかける時間 */
+	private chirp(t: number, from: number, to: number, bendTime: number, dur: number, peak: number): void {
 		if (peak <= 0) return;
 		const ctx = this.engine.context;
 		const osc = ctx.createOscillator();
 		osc.type = "sine";
 		osc.frequency.setValueAtTime(from, t);
-		osc.frequency.exponentialRampToValueAtTime(to, t + dur * 0.7);
+		osc.frequency.exponentialRampToValueAtTime(to, t + Math.min(bendTime, dur));
 		const gain = ctx.createGain();
 		gain.gain.setValueAtTime(0, t);
 		gain.gain.linearRampToValueAtTime(peak, t + 0.003);

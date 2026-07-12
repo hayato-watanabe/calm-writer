@@ -108,6 +108,7 @@ var KEY_SCHEMES = {
 var MIN_INTERVAL_MS = 40;
 var MARIMBA_NOTES = [523.25, 587.33, 659.25, 783.99, 880];
 var rand = (a, b) => a + Math.random() * (b - a);
+var lerp = (a, b, x) => a + (b - a) * x;
 var KeySoundPlayer = class {
   constructor(engine) {
     this.engine = engine;
@@ -138,26 +139,41 @@ var KeySoundPlayer = class {
         break;
     }
   }
-  /** 水滴: 上方向に軽くチャープするサイン波 + 高域のきらめき */
+  /**
+   * 水滴: 1打ごとに「滴の大きさ」を決め、そこから
+   * 音程・長さ・跳ね上がり方・水面の共鳴を連動して変える。
+   * 実際の水滴のように、同じ音は二度と鳴らない。
+   */
   playDrop(kind, level) {
-    let freq = rand(620, 980);
-    let dur = 0.16;
+    const t = this.engine.context.currentTime;
+    let size = Math.random();
     let peak = 0.22;
+    let freqScale = 1;
     if (kind === "space") {
-      freq = rand(340, 420);
-      dur = 0.2;
+      size = rand(0.55, 0.85);
+      freqScale = 0.62;
     } else if (kind === "enter" || kind === "return") {
-      freq = rand(240, 300);
-      dur = 0.34;
+      size = rand(0.8, 1);
+      freqScale = 0.55;
       peak = 0.26;
     } else if (kind === "delete") {
-      freq = rand(480, 560);
-      dur = 0.1;
+      size = rand(0, 0.3);
       peak = 0.16;
     }
-    const t = this.engine.context.currentTime;
-    this.chirp(t, freq, freq * 1.4, dur, peak * level);
-    this.noiseHit(t, 3200, 0.015, 0.05 * level);
+    const freq = lerp(1050, 480, size) * freqScale * rand(0.92, 1.08);
+    const dur = lerp(0.09, 0.3, size) * rand(0.85, 1.15);
+    const bend = rand(1.12, 1.75);
+    const bendTime = dur * rand(0.45, 0.85);
+    this.chirp(t, freq, freq * bend, bendTime, dur, peak * level);
+    this.noiseHit(t, rand(2600, 4200), rand(8e-3, 0.02), rand(0.03, 0.07) * level);
+    if (size > 0.45) {
+      this.thump(t + 5e-3, freq * 0.28, freq * 0.2, dur * 0.8, 0.1 * size * level);
+    }
+    if (kind === "key" && Math.random() < 0.28) {
+      const f2 = freq * rand(1.15, 1.45);
+      const d2 = dur * rand(0.5, 0.75);
+      this.chirp(t + rand(0.045, 0.09), f2, f2 * rand(1.2, 1.5), d2 * 0.6, d2, peak * 0.4 * level);
+    }
   }
   /** タイプライター: ノイズのクリック + 低域のタップ音。確定Enterでベル、改行でキャリッジリターン */
   playTypewriter(kind, level) {
@@ -238,14 +254,14 @@ var KeySoundPlayer = class {
     osc.start(t);
     osc.stop(t + dur + 0.05);
   }
-  /** ピッチが滑らかに動くサイン波（水滴の「ぴちょん」） */
-  chirp(t, from, to, dur, peak) {
+  /** ピッチが滑らかに動くサイン波（水滴の「ぴちょん」）。bendTime = ピッチ変化にかける時間 */
+  chirp(t, from, to, bendTime, dur, peak) {
     if (peak <= 0) return;
     const ctx = this.engine.context;
     const osc = ctx.createOscillator();
     osc.type = "sine";
     osc.frequency.setValueAtTime(from, t);
-    osc.frequency.exponentialRampToValueAtTime(to, t + dur * 0.7);
+    osc.frequency.exponentialRampToValueAtTime(to, t + Math.min(bendTime, dur));
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, t);
     gain.gain.linearRampToValueAtTime(peak, t + 3e-3);
