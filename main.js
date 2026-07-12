@@ -106,7 +106,70 @@ var KEY_SCHEMES = {
   soft: "\u30BD\u30D5\u30C8"
 };
 var MIN_INTERVAL_MS = 40;
-var MARIMBA_NOTES = [523.25, 587.33, 659.25, 783.99, 880];
+var MARIMBA_SCALE = [
+  261.63,
+  // ド  C4
+  293.66,
+  // レ  D4
+  329.63,
+  // ミ  E4
+  349.23,
+  // ファ F4
+  392,
+  //  ソ  G4
+  440,
+  //  ラ  A4
+  493.88,
+  // シ  B4
+  523.25,
+  // ド  C5
+  587.33,
+  // レ  D5
+  659.25
+  // ミ  E5
+];
+var KEY_COLUMNS = {
+  Digit1: 0,
+  KeyQ: 0,
+  KeyA: 0,
+  KeyZ: 0,
+  Digit2: 1,
+  KeyW: 1,
+  KeyS: 1,
+  KeyX: 1,
+  Digit3: 2,
+  KeyE: 2,
+  KeyD: 2,
+  KeyC: 2,
+  Digit4: 3,
+  KeyR: 3,
+  KeyF: 3,
+  KeyV: 3,
+  Digit5: 4,
+  KeyT: 4,
+  KeyG: 4,
+  KeyB: 4,
+  Digit6: 5,
+  KeyY: 5,
+  KeyH: 5,
+  KeyN: 5,
+  Digit7: 6,
+  KeyU: 6,
+  KeyJ: 6,
+  KeyM: 6,
+  Digit8: 7,
+  KeyI: 7,
+  KeyK: 7,
+  Comma: 7,
+  Digit9: 8,
+  KeyO: 8,
+  KeyL: 8,
+  Period: 8,
+  Digit0: 9,
+  KeyP: 9,
+  Semicolon: 9,
+  Slash: 9
+};
 var rand = (a, b) => a + Math.random() * (b - a);
 var lerp = (a, b, x) => a + (b - a) * x;
 var KeySoundPlayer = class {
@@ -117,7 +180,8 @@ var KeySoundPlayer = class {
     this.scheme = "drop";
     this.lastPlayed = 0;
   }
-  play(kind) {
+  /** code = KeyboardEvent.code（木琴が列→音程の割り当てに使う） */
+  play(kind, code) {
     const now = performance.now();
     if (now - this.lastPlayed < MIN_INTERVAL_MS) return;
     this.lastPlayed = now;
@@ -132,7 +196,7 @@ var KeySoundPlayer = class {
         this.playTypewriter(kind, level);
         break;
       case "marimba":
-        this.playMarimba(kind, level);
+        this.playMarimba(kind, level, code);
         break;
       case "soft":
         this.playSoft(kind, level);
@@ -199,24 +263,30 @@ var KeySoundPlayer = class {
       this.thump(t, 160, 90, 0.05, 0.25 * level);
     }
   }
-  /** 木琴: 基音 + 4倍音の短いストライク。ペンタトニックなので連打しても濁らない */
-  playMarimba(kind, level) {
-    let freq = MARIMBA_NOTES[Math.floor(Math.random() * MARIMBA_NOTES.length)];
+  /**
+   * 木琴: 基音 + 4倍音の短いストライク。
+   * キーボードの縦の列ごとに音程が決まり（zの列=ド、xの列=レ…）、鍵盤のように弾ける。
+   */
+  playMarimba(kind, level, code) {
+    let freq;
     let dur = 0.4;
     let peak = 0.22;
     if (kind === "space") {
       freq = 392;
       dur = 0.5;
     } else if (kind === "enter" || kind === "return") {
-      freq = 261.63;
-      dur = 0.8;
+      freq = 130.81;
+      dur = 0.9;
       peak = 0.26;
     } else if (kind === "delete") {
-      freq = 440;
-      dur = 0.22;
+      freq = 220;
+      dur = 0.18;
       peak = 0.16;
+    } else {
+      const column = code !== void 0 ? KEY_COLUMNS[code] : void 0;
+      freq = column !== void 0 ? MARIMBA_SCALE[column] : MARIMBA_SCALE[Math.floor(Math.random() * MARIMBA_SCALE.length)];
     }
-    freq *= rand(0.996, 1.004);
+    freq *= rand(0.998, 1.002);
     const t = this.engine.context.currentTime;
     this.tone(t, freq, dur, peak * level);
     this.tone(t, freq * 4, dur * 0.15, 0.06 * level);
@@ -1198,7 +1268,7 @@ var CalmWriterPlugin = class extends import_obsidian2.Plugin {
     if (!(target instanceof HTMLElement)) return;
     if (!target.closest(".cm-editor, .inline-title")) return;
     const kind = classifyKey(e);
-    if (kind) this.keySounds.play(kind);
+    if (kind) this.keySounds.play(kind, e.code);
   }
   // ---- 表示 ----
   applyCssVars() {

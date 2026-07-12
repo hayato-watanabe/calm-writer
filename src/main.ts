@@ -198,7 +198,7 @@ export default class CalmWriterPlugin extends Plugin {
 		if (!(target instanceof HTMLElement)) return;
 		if (!target.closest(".cm-editor, .inline-title")) return;
 		const kind = classifyKey(e);
-		if (kind) this.keySounds.play(kind);
+		if (kind) this.keySounds.play(kind, e.code);
 	}
 
 	// ---- 表示 ----
