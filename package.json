@@ -1,0 +1,29 @@
+{
+	"name": "calm-writer",
+	"version": "0.1.0",
+	"description": "OmmWriter-inspired immersive writing mode for Obsidian: typing sounds, ambient BGM, beautiful zen backgrounds, and readable typography.",
+	"main": "main.js",
+	"scripts": {
+		"dev": "node esbuild.config.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+	},
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"ommwriter",
+		"zen",
+		"focus",
+		"writing"
+	],
+	"author": "hayato-watanabe",
+	"license": "MIT",
+	"devDependencies": {
+		"@codemirror/state": "6.5.0",
+		"@codemirror/view": "6.38.6",
+		"builtin-modules": "^3.3.0",
+		"esbuild": "^0.21.5",
+		"obsidian": "latest",
+		"tslib": "^2.6.2",
+		"typescript": "^5.4.5"
+	}
+}
