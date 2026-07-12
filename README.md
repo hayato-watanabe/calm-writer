@@ -34,12 +34,28 @@ OmmWriter にインスパイアされた、Obsidian 用の没入ライティン�
 
 コミュニティプラグインには未登録のため、手動でインストールします。
 
-1. このリポジトリの `main.js` / `manifest.json` / `styles.css` の3ファイルを取得する
-2. Vault の `.obsidian/plugins/calm-writer/` フォルダを作り、3ファイルを置く
-3. Obsidian を再起動（または再読み込み）し、設定 → コミュニティプラグイン で **Calm Writer** を有効化する
+**方法1: git clone（おすすめ）**
 
-[BRAT](https://github.com/TfTHacker/obsidian42-brat) を使っている場合は、
-このリポジトリ（`hayato-watanabe/omm_writer_clone`）を Beta Plugin として追加しても入ります。
+このリポジトリは、ルートがそのまま Obsidian のプラグインフォルダになる標準構成です。
+Vault の `.obsidian/plugins/` に直接クローンするだけで完了します。
+
+```bash
+cd <あなたのVault>/.obsidian/plugins
+git clone https://github.com/hayato-watanabe/calm-writer.git
+```
+
+以後の更新も `calm-writer` フォルダ内で `git pull` するだけです。
+
+**方法2: 手動コピー**
+
+`main.js` / `manifest.json` / `styles.css` の3ファイルを
+`<あなたのVault>/.obsidian/plugins/calm-writer/` に置きます。
+
+どちらの方法でも、最後に Obsidian を再読み込みし、
+設定 → コミュニティプラグイン で **Calm Writer** を有効化してください。
+
+※ [BRAT](https://github.com/TfTHacker/obsidian42-brat) 経由の導入は、
+GitHub Release（main.js / manifest.json / styles.css を添付）を作成すると可能になります。
 
 ## 使い方
 
