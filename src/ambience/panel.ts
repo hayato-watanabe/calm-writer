@@ -1,7 +1,7 @@
 import { SCENES } from "./scenes";
 import { BGM_MOOD_NAMES, BgmMoodId } from "../audio/bgm";
 import { KEY_SCHEMES, KeySchemeId } from "../audio/keySounds";
-import type CalmWriterPlugin from "../main";
+import type ImmersiveWriterPlugin from "../main";
 
 /**
  * 没入モード中に画面右端へ出す切り替えパネル。
@@ -11,13 +11,13 @@ import type CalmWriterPlugin from "../main";
 export class ZenPanel {
 	private root: HTMLElement | null = null;
 
-	constructor(private plugin: CalmWriterPlugin) {}
+	constructor(private plugin: ImmersiveWriterPlugin) {}
 
 	show(): void {
 		this.hide();
-		const root = document.body.createDiv({ cls: "calm-writer-panel" });
-		root.createDiv({ cls: "calm-writer-panel-hint" });
-		const body = root.createDiv({ cls: "calm-writer-panel-body" });
+		const root = document.body.createDiv({ cls: "immersive-writer-panel" });
+		root.createDiv({ cls: "immersive-writer-panel-hint" });
+		const body = root.createDiv({ cls: "immersive-writer-panel-body" });
 
 		const scenes = this.section(body, "背景");
 		for (const scene of SCENES) {
@@ -67,15 +67,15 @@ export class ZenPanel {
 			bgm: s.bgmEnabled ? s.bgmMood : "off",
 			key: s.keySoundsEnabled ? s.keySoundScheme : "off",
 		};
-		const options = this.root.querySelectorAll<HTMLButtonElement>(".calm-writer-panel-option");
+		const options = this.root.querySelectorAll<HTMLButtonElement>(".immersive-writer-panel-option");
 		options.forEach((el) => {
 			el.classList.toggle("is-active", active[el.dataset.group ?? ""] === el.dataset.value);
 		});
 	}
 
 	private section(parent: HTMLElement, title: string): HTMLElement {
-		const sec = parent.createDiv({ cls: "calm-writer-panel-section" });
-		sec.createDiv({ cls: "calm-writer-panel-title", text: title });
+		const sec = parent.createDiv({ cls: "immersive-writer-panel-section" });
+		sec.createDiv({ cls: "immersive-writer-panel-title", text: title });
 		return sec;
 	}
 
@@ -86,7 +86,7 @@ export class ZenPanel {
 		value: string,
 		onSelect: () => void
 	): void {
-		const btn = parent.createEl("button", { cls: "calm-writer-panel-option", text: label });
+		const btn = parent.createEl("button", { cls: "immersive-writer-panel-option", text: label });
 		btn.dataset.group = group;
 		btn.dataset.value = value;
 		// mousedownを潰してエディタからフォーカスを奪わない

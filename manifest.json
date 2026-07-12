@@ -1,7 +1,7 @@
 {
-	"id": "calm-writer",
-	"name": "Calm Writer",
-	"version": "0.2.2",
+	"id": "immersive-writer",
+	"name": "Immersive Writer",
+	"version": "0.3.0",
 	"minAppVersion": "1.4.0",
 	"description": "OmmWriter風の没入ライティングモード。タイプ音・幻想的なBGM・美しい背景・読みやすいタイポグラフィをObsidianに。",
 	"author": "hayato-watanabe",

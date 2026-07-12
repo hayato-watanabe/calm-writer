@@ -5,7 +5,7 @@ export type ParticleKind = "none" | "snow" | "stars" | "motes";
 /**
  * シーン = 背景(CSS) × パーティクル × BGMムード の組。
  * 背景グラデーションと文字色は styles.css の
- * `.calm-writer-scene-<id>` セレクタで定義する。
+ * `.immersive-writer-scene-<id>` セレクタで定義する。
  */
 export interface Scene {
 	id: string;

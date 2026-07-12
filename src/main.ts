@@ -7,18 +7,18 @@ import { ParticleLayer } from "./ambience/particles";
 import { ZenController } from "./ambience/zenMode";
 import { ZenPanel } from "./ambience/panel";
 import { getScene, SCENES } from "./ambience/scenes";
-import { CalmWriterSettings, CalmWriterSettingTab, DEFAULT_SETTINGS } from "./settings";
+import { ImmersiveWriterSettings, ImmersiveWriterSettingTab, DEFAULT_SETTINGS } from "./settings";
 
 const CSS_VARS = [
-	"--calm-font-family",
-	"--calm-font-size",
-	"--calm-line-height",
-	"--calm-editor-width",
-	"--calm-vignette",
+	"--iw-font-family",
+	"--iw-font-size",
+	"--iw-line-height",
+	"--iw-editor-width",
+	"--iw-vignette",
 ] as const;
 
-export default class CalmWriterPlugin extends Plugin {
-	settings!: CalmWriterSettings;
+export default class ImmersiveWriterPlugin extends Plugin {
+	settings!: ImmersiveWriterSettings;
 	engine = new AudioEngine();
 	keySounds = new KeySoundPlayer(this.engine);
 	bgm = new BgmPlayer(this.engine);
@@ -73,7 +73,7 @@ export default class CalmWriterPlugin extends Plugin {
 		});
 
 		this.registerEditorExtension(this.typewriterExtension());
-		this.addSettingTab(new CalmWriterSettingTab(this.app, this));
+		this.addSettingTab(new ImmersiveWriterSettingTab(this.app, this));
 	}
 
 	onunload(): void {
@@ -207,11 +207,11 @@ export default class CalmWriterPlugin extends Plugin {
 		const s = this.settings;
 		const st = document.body.style;
 		const font = s.customFont.trim() || s.fontPreset || "inherit";
-		st.setProperty("--calm-font-family", font);
-		st.setProperty("--calm-font-size", `${s.fontSize}px`);
-		st.setProperty("--calm-line-height", String(s.lineHeight));
-		st.setProperty("--calm-editor-width", `${s.editorWidth}rem`);
-		st.setProperty("--calm-vignette", String(s.vignette));
+		st.setProperty("--iw-font-family", font);
+		st.setProperty("--iw-font-size", `${s.fontSize}px`);
+		st.setProperty("--iw-line-height", String(s.lineHeight));
+		st.setProperty("--iw-editor-width", `${s.editorWidth}rem`);
+		st.setProperty("--iw-vignette", String(s.vignette));
 	}
 
 	/** 入力した行を画面中央に保つCodeMirror拡張（没入モード中のみ動く） */

@@ -1,4 +1,4 @@
-# Calm Writer
+# Immersive Writer
 
 OmmWriter にインスパイアされた、Obsidian 用の没入ライティングモードプラグインです。
 コマンドひとつで Obsidian が「静かな書斎」に変わります。
@@ -47,18 +47,18 @@ Vault の `.obsidian/plugins/` に直接クローンするだけで完了しま�
 
 ```bash
 cd <あなたのVault>/.obsidian/plugins
-git clone https://github.com/hayato-watanabe/calm-writer.git
+git clone https://github.com/hayato-watanabe/immersive-writer.git
 ```
 
-以後の更新も `calm-writer` フォルダ内で `git pull` するだけです。
+以後の更新も `immersive-writer` フォルダ内で `git pull` するだけです。
 
 **方法2: 手動コピー**
 
 `main.js` / `manifest.json` / `styles.css` の3ファイルを
-`<あなたのVault>/.obsidian/plugins/calm-writer/` に置きます。
+`<あなたのVault>/.obsidian/plugins/immersive-writer/` に置きます。
 
 どちらの方法でも、最後に Obsidian を再読み込みし、
-設定 → コミュニティプラグイン で **Calm Writer** を有効化してください。
+設定 → コミュニティプラグイン で **Immersive Writer** を有効化してください。
 
 ※ [BRAT](https://github.com/TfTHacker/obsidian42-brat) 経由の導入は、
 GitHub Release（main.js / manifest.json / styles.css を添付）を作成すると可能になります。
@@ -79,7 +79,7 @@ GitHub Release（main.js / manifest.json / styles.css を添付）を作成す�
 
 ## 設定
 
-設定 → Calm Writer から調整できます。
+設定 → Immersive Writer から調整できます。
 
 - **没入モード**: シーン / フルスクリーン / 周辺減光の強さ / パーティクル / タイプライタースクロール
 - **タイプ音**: オン・オフ / 没入モード外でも鳴らすか / 音色 / 音量

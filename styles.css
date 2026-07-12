@@ -1,19 +1,19 @@
 /* ============================================================
-   Calm Writer — OmmWriter風の没入ライティングモード
-   body.calm-writer-zen が付いている間だけ適用される。
+   Immersive Writer — OmmWriter風の没入ライティングモード
+   body.immersive-writer-zen が付いている間だけ適用される。
    ============================================================ */
 
 /* ---- 入場時のフェード演出 ---- */
-.calm-writer-fade {
+.immersive-writer-fade {
 	position: fixed;
 	inset: 0;
 	z-index: 999;
 	background: #000;
 	pointer-events: none;
-	animation: calm-writer-fade-out 1.2s ease forwards;
+	animation: immersive-writer-fade-out 1.2s ease forwards;
 }
 
-@keyframes calm-writer-fade-out {
+@keyframes immersive-writer-fade-out {
 	from {
 		opacity: 0.85;
 	}
@@ -23,7 +23,7 @@
 }
 
 /* ---- パーティクル層（bodyの背景の上、本文の下） ---- */
-.calm-writer-particles {
+.immersive-writer-particles {
 	position: fixed;
 	inset: 0;
 	width: 100vw;
@@ -32,49 +32,49 @@
 	z-index: 0;
 }
 
-body.calm-writer-zen .app-container {
+body.immersive-writer-zen .app-container {
 	position: relative;
 	z-index: 1;
 }
 
 /* ---- UIをすべて隠す ---- */
-body.calm-writer-zen .workspace-ribbon,
-body.calm-writer-zen .status-bar,
-body.calm-writer-zen .workspace-tab-header-container,
-body.calm-writer-zen .view-header,
-body.calm-writer-zen .metadata-container,
-body.calm-writer-zen .workspace-split.mod-left-split,
-body.calm-writer-zen .workspace-split.mod-right-split,
-body.calm-writer-zen .workspace-leaf-resize-handle,
-body.calm-writer-zen .sidebar-toggle-button {
+body.immersive-writer-zen .workspace-ribbon,
+body.immersive-writer-zen .status-bar,
+body.immersive-writer-zen .workspace-tab-header-container,
+body.immersive-writer-zen .view-header,
+body.immersive-writer-zen .metadata-container,
+body.immersive-writer-zen .workspace-split.mod-left-split,
+body.immersive-writer-zen .workspace-split.mod-right-split,
+body.immersive-writer-zen .workspace-leaf-resize-handle,
+body.immersive-writer-zen .sidebar-toggle-button {
 	display: none !important;
 }
 
 /* ---- ワークスペースを透過して body の背景を見せる ---- */
-body.calm-writer-zen .app-container,
-body.calm-writer-zen .horizontal-main-container,
-body.calm-writer-zen .workspace,
-body.calm-writer-zen .workspace-split,
-body.calm-writer-zen .workspace-tabs,
-body.calm-writer-zen .workspace-tab-container,
-body.calm-writer-zen .workspace-leaf,
-body.calm-writer-zen .workspace-leaf-content,
-body.calm-writer-zen .view-content,
-body.calm-writer-zen .markdown-source-view,
-body.calm-writer-zen .markdown-preview-view,
-body.calm-writer-zen .cm-editor,
-body.calm-writer-zen .cm-scroller {
+body.immersive-writer-zen .app-container,
+body.immersive-writer-zen .horizontal-main-container,
+body.immersive-writer-zen .workspace,
+body.immersive-writer-zen .workspace-split,
+body.immersive-writer-zen .workspace-tabs,
+body.immersive-writer-zen .workspace-tab-container,
+body.immersive-writer-zen .workspace-leaf,
+body.immersive-writer-zen .workspace-leaf-content,
+body.immersive-writer-zen .view-content,
+body.immersive-writer-zen .markdown-source-view,
+body.immersive-writer-zen .markdown-preview-view,
+body.immersive-writer-zen .cm-editor,
+body.immersive-writer-zen .cm-scroller {
 	background: transparent !important;
 }
 
 /* 背景はゆっくり漂う大きめのグラデーション */
-body.calm-writer-zen {
+body.immersive-writer-zen {
 	background-attachment: fixed;
 	background-size: 200% 200%;
-	animation: calm-writer-drift 90s ease-in-out infinite alternate;
+	animation: immersive-writer-drift 90s ease-in-out infinite alternate;
 }
 
-@keyframes calm-writer-drift {
+@keyframes immersive-writer-drift {
 	from {
 		background-position: 0% 0%;
 	}
@@ -84,13 +84,13 @@ body.calm-writer-zen {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	body.calm-writer-zen {
+	body.immersive-writer-zen {
 		animation: none;
 	}
 }
 
 /* ---- 周辺減光（ビネット） ---- */
-body.calm-writer-zen::after {
+body.immersive-writer-zen::after {
 	content: "";
 	position: fixed;
 	inset: 0;
@@ -99,64 +99,64 @@ body.calm-writer-zen::after {
 	background: radial-gradient(
 		ellipse 120% 95% at center,
 		transparent 52%,
-		var(--calm-vignette-color, rgba(15, 20, 30, 0.6)) 118%
+		var(--iw-vignette-color, rgba(15, 20, 30, 0.6)) 118%
 	);
-	opacity: var(--calm-vignette, 0.5);
+	opacity: var(--iw-vignette, 0.5);
 }
 
 /* ---- 本文のタイポグラフィ ---- */
-body.calm-writer-zen {
-	--text-normal: var(--calm-text);
-	--text-muted: var(--calm-text-muted);
-	--text-faint: var(--calm-text-muted);
+body.immersive-writer-zen {
+	--text-normal: var(--iw-text);
+	--text-muted: var(--iw-text-muted);
+	--text-faint: var(--iw-text-muted);
 }
 
-body.calm-writer-zen .markdown-source-view.mod-cm6 .cm-sizer,
-body.calm-writer-zen .markdown-preview-sizer {
-	max-width: var(--calm-editor-width, 42rem) !important;
+body.immersive-writer-zen .markdown-source-view.mod-cm6 .cm-sizer,
+body.immersive-writer-zen .markdown-preview-sizer {
+	max-width: var(--iw-editor-width, 42rem) !important;
 	margin-left: auto !important;
 	margin-right: auto !important;
 }
 
-body.calm-writer-zen .cm-scroller {
+body.immersive-writer-zen .cm-scroller {
 	padding-top: 18vh !important;
 	padding-bottom: 45vh !important;
 }
 
-body.calm-writer-zen .markdown-source-view .cm-content,
-body.calm-writer-zen .markdown-preview-view,
-body.calm-writer-zen .inline-title {
-	font-family: var(--calm-font-family, inherit);
-	font-size: var(--calm-font-size, 20px);
-	line-height: var(--calm-line-height, 2);
+body.immersive-writer-zen .markdown-source-view .cm-content,
+body.immersive-writer-zen .markdown-preview-view,
+body.immersive-writer-zen .inline-title {
+	font-family: var(--iw-font-family, inherit);
+	font-size: var(--iw-font-size, 20px);
+	line-height: var(--iw-line-height, 2);
 }
 
-body.calm-writer-zen .markdown-source-view .cm-content {
-	color: var(--calm-text);
-	caret-color: var(--calm-text);
+body.immersive-writer-zen .markdown-source-view .cm-content {
+	color: var(--iw-text);
+	caret-color: var(--iw-text);
 }
 
-body.calm-writer-zen .inline-title {
-	color: var(--calm-text-muted);
+body.immersive-writer-zen .inline-title {
+	color: var(--iw-text-muted);
 }
 
-body.calm-writer-zen .cm-editor .cm-cursor {
-	border-left-color: var(--calm-text);
+body.immersive-writer-zen .cm-editor .cm-cursor {
+	border-left-color: var(--iw-text);
 	border-left-width: 2px;
 }
 
-body.calm-writer-zen .cm-editor .cm-selectionBackground,
-body.calm-writer-zen .cm-content ::selection {
-	background: var(--calm-selection) !important;
+body.immersive-writer-zen .cm-editor .cm-selectionBackground,
+body.immersive-writer-zen .cm-content ::selection {
+	background: var(--iw-selection) !important;
 }
 
 /* 現在行のハイライトは消して紙面を静かに保つ */
-body.calm-writer-zen .cm-active.cm-line {
+body.immersive-writer-zen .cm-active.cm-line {
 	background: transparent !important;
 }
 
 /* スクロールバーも隠して視界を澄ませる */
-body.calm-writer-zen ::-webkit-scrollbar {
+body.immersive-writer-zen ::-webkit-scrollbar {
 	width: 0 !important;
 	height: 0 !important;
 }
@@ -165,7 +165,7 @@ body.calm-writer-zen ::-webkit-scrollbar {
    クイックパネル（画面右端・ホバーで出現）
    ============================================================ */
 
-.calm-writer-panel {
+.immersive-writer-panel {
 	position: fixed;
 	top: 50%;
 	right: 0;
@@ -178,16 +178,16 @@ body.calm-writer-zen ::-webkit-scrollbar {
 }
 
 /* ふだん見えているのは細いバーだけ */
-.calm-writer-panel-hint {
+.immersive-writer-panel-hint {
 	width: 4px;
 	height: 72px;
 	border-radius: 2px;
-	background: var(--calm-text, var(--text-muted));
+	background: var(--iw-text, var(--text-muted));
 	opacity: 0.18;
 	transition: opacity 0.3s ease;
 }
 
-.calm-writer-panel-body {
+.immersive-writer-panel-body {
 	position: absolute;
 	right: 14px;
 	top: 50%;
@@ -195,7 +195,7 @@ body.calm-writer-zen ::-webkit-scrollbar {
 	opacity: 0;
 	pointer-events: none;
 	transition: opacity 0.3s ease, transform 0.3s ease;
-	background: var(--calm-panel-bg, rgba(20, 26, 38, 0.6));
+	background: var(--iw-panel-bg, rgba(20, 26, 38, 0.6));
 	-webkit-backdrop-filter: blur(14px);
 	backdrop-filter: blur(14px);
 	border-radius: 14px;
@@ -206,36 +206,36 @@ body.calm-writer-zen ::-webkit-scrollbar {
 	box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
-.calm-writer-panel:hover .calm-writer-panel-body {
+.immersive-writer-panel:hover .immersive-writer-panel-body {
 	opacity: 1;
 	transform: translateY(-50%) translateX(0);
 	pointer-events: auto;
 }
 
-.calm-writer-panel:hover .calm-writer-panel-hint {
+.immersive-writer-panel:hover .immersive-writer-panel-hint {
 	opacity: 0;
 }
 
-.calm-writer-panel-section + .calm-writer-panel-section {
+.immersive-writer-panel-section + .immersive-writer-panel-section {
 	margin-top: 12px;
 }
 
-.calm-writer-panel-title {
+.immersive-writer-panel-title {
 	font-size: 10px;
 	letter-spacing: 0.14em;
 	opacity: 0.55;
 	margin: 0 0 4px 10px;
-	color: var(--calm-text, var(--text-muted));
+	color: var(--iw-text, var(--text-muted));
 }
 
-.calm-writer-panel-option {
+.immersive-writer-panel-option {
 	display: block;
 	width: 100%;
 	text-align: left;
 	background: transparent;
 	border: none;
 	box-shadow: none;
-	color: var(--calm-text, var(--text-normal));
+	color: var(--iw-text, var(--text-normal));
 	font-size: 12.5px;
 	line-height: 1.4;
 	padding: 4px 10px;
@@ -246,13 +246,13 @@ body.calm-writer-zen ::-webkit-scrollbar {
 	height: auto;
 }
 
-.calm-writer-panel-option:hover {
+.immersive-writer-panel-option:hover {
 	background: color-mix(in srgb, currentColor 12%, transparent);
 	box-shadow: none;
 	opacity: 1;
 }
 
-.calm-writer-panel-option.is-active {
+.immersive-writer-panel-option.is-active {
 	background: color-mix(in srgb, currentColor 20%, transparent);
 	opacity: 1;
 	font-weight: 600;
@@ -263,7 +263,7 @@ body.calm-writer-zen ::-webkit-scrollbar {
    ============================================================ */
 
 /* 雪原 — 淡青のグラデーションに雪が舞う */
-body.calm-writer-zen.calm-writer-scene-snowfield {
+body.immersive-writer-zen.immersive-writer-scene-snowfield {
 	background-image: linear-gradient(
 		160deg,
 		#e8f0f8 0%,
@@ -271,15 +271,15 @@ body.calm-writer-zen.calm-writer-scene-snowfield {
 		#dfe9f2 70%,
 		#cfdeea 100%
 	);
-	--calm-text: #33475c;
-	--calm-text-muted: #7d8fa3;
-	--calm-selection: rgba(120, 160, 200, 0.25);
-	--calm-vignette-color: rgba(70, 100, 140, 0.45);
-	--calm-panel-bg: rgba(255, 255, 255, 0.6);
+	--iw-text: #33475c;
+	--iw-text-muted: #7d8fa3;
+	--iw-selection: rgba(120, 160, 200, 0.25);
+	--iw-vignette-color: rgba(70, 100, 140, 0.45);
+	--iw-panel-bg: rgba(255, 255, 255, 0.6);
 }
 
 /* 夜空 — 深い藍色に星がまたたく */
-body.calm-writer-zen.calm-writer-scene-night {
+body.immersive-writer-zen.immersive-writer-scene-night {
 	background-image: linear-gradient(
 		180deg,
 		#0a0e22 0%,
@@ -287,15 +287,15 @@ body.calm-writer-zen.calm-writer-scene-night {
 		#1d2547 80%,
 		#232b52 100%
 	);
-	--calm-text: #c9d3e8;
-	--calm-text-muted: #6d7a99;
-	--calm-selection: rgba(120, 140, 220, 0.3);
-	--calm-vignette-color: rgba(0, 0, 10, 0.65);
-	--calm-panel-bg: rgba(12, 16, 30, 0.55);
+	--iw-text: #c9d3e8;
+	--iw-text-muted: #6d7a99;
+	--iw-selection: rgba(120, 140, 220, 0.3);
+	--iw-vignette-color: rgba(0, 0, 10, 0.65);
+	--iw-panel-bg: rgba(12, 16, 30, 0.55);
 }
 
 /* 森 — 深緑の中に光の粒がのぼる */
-body.calm-writer-zen.calm-writer-scene-forest {
+body.immersive-writer-zen.immersive-writer-scene-forest {
 	background-image: linear-gradient(
 		165deg,
 		#0d1f1a 0%,
@@ -303,19 +303,19 @@ body.calm-writer-zen.calm-writer-scene-forest {
 		#1e3d33 75%,
 		#274a3c 100%
 	);
-	--calm-text: #cfe0cd;
-	--calm-text-muted: #7f957f;
-	--calm-selection: rgba(120, 200, 150, 0.22);
-	--calm-vignette-color: rgba(0, 15, 8, 0.55);
-	--calm-panel-bg: rgba(10, 20, 16, 0.55);
+	--iw-text: #cfe0cd;
+	--iw-text-muted: #7f957f;
+	--iw-selection: rgba(120, 200, 150, 0.22);
+	--iw-vignette-color: rgba(0, 15, 8, 0.55);
+	--iw-panel-bg: rgba(10, 20, 16, 0.55);
 }
 
 /* 白い紙 — 何もない温かな白 */
-body.calm-writer-zen.calm-writer-scene-paper {
+body.immersive-writer-zen.immersive-writer-scene-paper {
 	background-image: linear-gradient(170deg, #f8f5ee 0%, #f3efe6 50%, #ece7db 100%);
-	--calm-text: #4a453c;
-	--calm-text-muted: #a09a8c;
-	--calm-selection: rgba(180, 160, 120, 0.28);
-	--calm-vignette-color: rgba(90, 80, 60, 0.35);
-	--calm-panel-bg: rgba(255, 253, 247, 0.65);
+	--iw-text: #4a453c;
+	--iw-text-muted: #a09a8c;
+	--iw-selection: rgba(180, 160, 120, 0.28);
+	--iw-vignette-color: rgba(90, 80, 60, 0.35);
+	--iw-panel-bg: rgba(255, 253, 247, 0.65);
 }

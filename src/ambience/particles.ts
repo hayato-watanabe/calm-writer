@@ -27,7 +27,7 @@ export class ParticleLayer {
 		if (kind === "none") return;
 		if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 		this.kind = kind;
-		this.canvas = document.body.createEl("canvas", { cls: "calm-writer-particles" });
+		this.canvas = document.body.createEl("canvas", { cls: "immersive-writer-particles" });
 		this.ctx2d = this.canvas.getContext("2d");
 		window.addEventListener("resize", this.onResize);
 		this.resize();

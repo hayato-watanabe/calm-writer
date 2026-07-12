@@ -1,7 +1,7 @@
 import { App } from "obsidian";
 
-const ZEN_CLASS = "calm-writer-zen";
-const SCENE_CLASS_PREFIX = "calm-writer-scene-";
+const ZEN_CLASS = "immersive-writer-zen";
+const SCENE_CLASS_PREFIX = "immersive-writer-scene-";
 
 /**
  * 没入モードの入退場を管理する。
@@ -25,7 +25,7 @@ export class ZenController {
 		document.body.classList.add(ZEN_CLASS, SCENE_CLASS_PREFIX + sceneId);
 
 		// ゆっくり明けるフェード演出
-		const fade = document.body.createDiv({ cls: "calm-writer-fade" });
+		const fade = document.body.createDiv({ cls: "immersive-writer-fade" });
 		window.setTimeout(() => fade.remove(), 1300);
 
 		// サイドバーを畳む（leftSplit/rightSplit は公開型に無いので any 経由）

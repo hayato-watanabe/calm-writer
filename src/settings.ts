@@ -2,9 +2,9 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 import { KEY_SCHEMES, KeySchemeId } from "./audio/keySounds";
 import { BGM_MOOD_NAMES, BgmMoodId } from "./audio/bgm";
 import { SCENES } from "./ambience/scenes";
-import type CalmWriterPlugin from "./main";
+import type ImmersiveWriterPlugin from "./main";
 
-export interface CalmWriterSettings {
+export interface ImmersiveWriterSettings {
 	sceneId: string;
 	fullscreen: boolean;
 	vignette: number; // 0..1
@@ -24,7 +24,7 @@ export interface CalmWriterSettings {
 	editorWidth: number; // rem
 }
 
-export const DEFAULT_SETTINGS: CalmWriterSettings = {
+export const DEFAULT_SETTINGS: ImmersiveWriterSettings = {
 	sceneId: "snowfield",
 	fullscreen: true,
 	vignette: 0.5,
@@ -53,8 +53,8 @@ const FONT_PRESETS: Record<string, string> = {
 	'"SF Mono", Menlo, Consolas, "Source Han Code JP", monospace': "等幅",
 };
 
-export class CalmWriterSettingTab extends PluginSettingTab {
-	constructor(app: App, private plugin: CalmWriterPlugin) {
+export class ImmersiveWriterSettingTab extends PluginSettingTab {
+	constructor(app: App, private plugin: ImmersiveWriterPlugin) {
 		super(app, plugin);
 	}
 
@@ -192,7 +192,7 @@ export class CalmWriterSettingTab extends PluginSettingTab {
 				dd.addOption("auto", "シーン連動");
 				for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) dd.addOption(id, name);
 				dd.setValue(s.bgmMood).onChange(async (v) => {
-					s.bgmMood = v as CalmWriterSettings["bgmMood"];
+					s.bgmMood = v as ImmersiveWriterSettings["bgmMood"];
 					if (this.plugin.bgm.playing) {
 						this.plugin.bgm.switchMood(this.plugin.effectiveMood());
 					}
