@@ -483,6 +483,8 @@ var BgmPlayer = class {
     this.wind = null;
     this.chordIndex = 0;
     this.timers = /* @__PURE__ */ new Set();
+    /** switchMood の「フェード後に再開する」予約。stop() で必ず破棄する */
+    this.restartTimer = null;
   }
   setVolume(v) {
     this.volume = v;
@@ -526,6 +528,10 @@ var BgmPlayer = class {
     this.scheduleChordChange();
   }
   stop(fadeSeconds = 2.5) {
+    if (this.restartTimer !== null) {
+      window.clearTimeout(this.restartTimer);
+      this.restartTimer = null;
+    }
     this.playing = false;
     const master = this.master;
     if (!master) return;
@@ -557,11 +563,10 @@ var BgmPlayer = class {
     this.mood = mood;
     if (!this.playing) return;
     this.stop(1.2);
-    const timer = window.setTimeout(() => {
-      this.timers.delete(timer);
+    this.restartTimer = window.setTimeout(() => {
+      this.restartTimer = null;
       this.start(mood);
     }, 1400);
-    this.timers.add(timer);
   }
   dispose() {
     for (const id of this.timers) window.clearTimeout(id);
@@ -946,7 +951,7 @@ var DEFAULT_SETTINGS = {
   particlesEnabled: true,
   typewriterScroll: true,
   keySoundsEnabled: true,
-  keySoundsEverywhere: true,
+  keySoundsEverywhere: false,
   keySoundScheme: "drop",
   keySoundVolume: 0.5,
   bgmEnabled: true,

@@ -95,6 +95,8 @@ export class BgmPlayer {
 	private wind: Voice | null = null;
 	private chordIndex = 0;
 	private timers = new Set<number>();
+	/** switchMood の「フェード後に再開する」予約。stop() で必ず破棄する */
+	private restartTimer: number | null = null;
 
 	constructor(private engine: AudioEngine) {}
 
@@ -150,6 +152,13 @@ export class BgmPlayer {
 	}
 
 	stop(fadeSeconds = 2.5): void {
+		// ムード切替の再開予約が残っていれば破棄する。
+		// これがないと、切替直後に没入モードを抜けたとき予約だけが生き残り、
+		// 退出後にBGMが再び鳴り出してしまう
+		if (this.restartTimer !== null) {
+			window.clearTimeout(this.restartTimer);
+			this.restartTimer = null;
+		}
 		this.playing = false;
 		const master = this.master;
 		if (!master) return;
@@ -187,11 +196,10 @@ export class BgmPlayer {
 		this.mood = mood;
 		if (!this.playing) return;
 		this.stop(1.2);
-		const timer = window.setTimeout(() => {
-			this.timers.delete(timer);
+		this.restartTimer = window.setTimeout(() => {
+			this.restartTimer = null;
 			this.start(mood);
 		}, 1400);
-		this.timers.add(timer);
 	}
 
 	dispose(): void {

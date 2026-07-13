@@ -31,7 +31,7 @@ export const DEFAULT_SETTINGS: ImmersiveWriterSettings = {
 	particlesEnabled: true,
 	typewriterScroll: true,
 	keySoundsEnabled: true,
-	keySoundsEverywhere: true,
+	keySoundsEverywhere: false,
 	keySoundScheme: "drop",
 	keySoundVolume: 0.5,
 	bgmEnabled: true,
