@@ -1,5 +1,6 @@
 import { ParticleKind } from "./scenes";
 import type { SkyState } from "./sky";
+import MOON_TEXTURE from "../assets/moon.png";
 
 interface Particle {
 	x: number;
@@ -22,16 +23,6 @@ interface ShootingStar {
 }
 
 const FLARE_DUR = 1.6;
-
-/** 月の海（暗い模様）の配置。[x, y, 半径] いずれも月の半径に対する割合 */
-const MOON_MARIA: [number, number, number][] = [
-	[-0.28, -0.12, 0.42],
-	[0.26, 0.08, 0.3],
-	[0.02, 0.38, 0.26],
-	[-0.14, -0.46, 0.18],
-	[0.42, -0.28, 0.14],
-	[0.18, -0.2, 0.16],
-];
 
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
@@ -233,29 +224,31 @@ export class ParticleLayer {
 		c.arc(mx, my, r * 5.5, 0, Math.PI * 2);
 		c.fill();
 
-		// 本体。縁をわずかに暗く・薄くして光暈へなじませる
-		const disc = c.createRadialGradient(mx - r * 0.2, my - r * 0.2, r * 0.2, mx, my, r);
-		disc.addColorStop(0, `rgba(240, 244, 252, ${0.95 * a})`);
-		disc.addColorStop(0.75, `rgba(228, 234, 248, ${0.92 * a})`);
-		disc.addColorStop(0.94, `rgba(200, 212, 234, ${0.82 * a})`);
-		disc.addColorStop(1, `rgba(196, 208, 232, ${0.55 * a})`);
-		c.fillStyle = disc;
-		c.beginPath();
-		c.arc(mx, my, r, 0, Math.PI * 2);
-		c.fill();
-
-		// 海（暗い模様）。月面に固定した配置で描く
-		c.save();
-		c.beginPath();
-		c.arc(mx, my, r, 0, Math.PI * 2);
-		c.clip();
-		c.fillStyle = `rgba(104, 120, 158, ${0.5 * a})`;
-		for (const [ox, oy, or] of MOON_MARIA) {
+		// 本体。実際の月の地理（海・光条）を焼き込んだテクスチャを描く
+		const img = this.moonImage();
+		if (img.complete && img.naturalWidth > 0) {
+			c.globalAlpha = 0.95 * a;
+			c.drawImage(img, mx - r, my - r, r * 2, r * 2);
+			c.globalAlpha = 1;
+		} else {
+			// テクスチャ読み込み完了までの一瞬だけ素のディスクを出す
+			c.globalAlpha = 0.9 * a;
+			c.fillStyle = "#e4eaf6";
 			c.beginPath();
-			c.arc(mx + ox * r, my + oy * r, or * r, 0, Math.PI * 2);
+			c.arc(mx, my, r, 0, Math.PI * 2);
 			c.fill();
+			c.globalAlpha = 1;
 		}
-		c.restore();
+	}
+
+	private moonImg: HTMLImageElement | null = null;
+
+	private moonImage(): HTMLImageElement {
+		if (!this.moonImg) {
+			this.moonImg = new Image();
+			this.moonImg.src = MOON_TEXTURE;
+		}
+		return this.moonImg;
 	}
 
 	/** 流れ星。1〜2分半に一度、夜空をすっと横切る */
