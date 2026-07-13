@@ -249,7 +249,7 @@ export class ParticleLayer {
 		c.beginPath();
 		c.arc(mx, my, r, 0, Math.PI * 2);
 		c.clip();
-		c.fillStyle = `rgba(148, 162, 196, ${0.32 * a})`;
+		c.fillStyle = `rgba(104, 120, 158, ${0.5 * a})`;
 		for (const [ox, oy, or] of MOON_MARIA) {
 			c.beginPath();
 			c.arc(mx + ox * r, my + oy * r, or * r, 0, Math.PI * 2);
