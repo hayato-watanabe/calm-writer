@@ -212,20 +212,33 @@ export class ParticleLayer {
 		const r = Math.max(14, Math.min(26, Math.min(w, h) * 0.022));
 		const a = sky.moonAlpha;
 
-		// 控えめな光暈。空が暗いほど広がって見える
-		const halo = c.createRadialGradient(mx, my, r * 0.6, mx, my, r * 2.4);
-		halo.addColorStop(0, `rgba(226, 232, 248, ${0.3 * a})`);
-		halo.addColorStop(1, "rgba(226, 232, 248, 0)");
+		// 光暈。実際の月暈と同じく指数関数的な減衰を多段の色停止点で近似し、
+		// 月の5.5倍の距離までゆるやかに尾を引かせる（線形減衰だと外縁が輪郭に見える）
+		const halo = c.createRadialGradient(mx, my, r * 0.9, mx, my, r * 5.5);
+		const HALO_FALLOFF: [number, number][] = [
+			[0, 0.4],
+			[0.1, 0.26],
+			[0.22, 0.16],
+			[0.38, 0.085],
+			[0.55, 0.04],
+			[0.72, 0.016],
+			[0.88, 0.006],
+			[1, 0],
+		];
+		for (const [pos, alpha] of HALO_FALLOFF) {
+			halo.addColorStop(pos, `rgba(226, 232, 248, ${(alpha * a).toFixed(3)})`);
+		}
 		c.fillStyle = halo;
 		c.beginPath();
-		c.arc(mx, my, r * 2.4, 0, Math.PI * 2);
+		c.arc(mx, my, r * 5.5, 0, Math.PI * 2);
 		c.fill();
 
-		// 本体。縁をわずかに暗くして球らしさを出す
+		// 本体。縁をわずかに暗く・薄くして光暈へなじませる
 		const disc = c.createRadialGradient(mx - r * 0.2, my - r * 0.2, r * 0.2, mx, my, r);
 		disc.addColorStop(0, `rgba(240, 244, 252, ${0.95 * a})`);
 		disc.addColorStop(0.75, `rgba(228, 234, 248, ${0.92 * a})`);
-		disc.addColorStop(1, `rgba(196, 208, 232, ${0.85 * a})`);
+		disc.addColorStop(0.94, `rgba(200, 212, 234, ${0.82 * a})`);
+		disc.addColorStop(1, `rgba(196, 208, 232, ${0.55 * a})`);
 		c.fillStyle = disc;
 		c.beginPath();
 		c.arc(mx, my, r, 0, Math.PI * 2);
