@@ -691,6 +691,14 @@ var BgmPlayer = class {
 
 // src/ambience/particles.ts
 var FLARE_DUR = 1.6;
+var MOON_MARIA = [
+  [-0.28, -0.12, 0.42],
+  [0.26, 0.08, 0.3],
+  [0.02, 0.38, 0.26],
+  [-0.14, -0.46, 0.18],
+  [0.42, -0.28, 0.14],
+  [0.18, -0.2, 0.16]
+];
 var rand2 = (a, b) => a + Math.random() * (b - a);
 var ParticleLayer = class {
   constructor() {
@@ -849,21 +857,34 @@ var ParticleLayer = class {
     if (sky.moonAlpha < 0.01) return;
     const mx = sky.moonX * w;
     const my = sky.moonY * h;
-    const r = Math.min(w, h) * 0.035;
-    const halo = c.createRadialGradient(mx, my, 0, mx, my, r * 3.2);
-    halo.addColorStop(0, `rgba(228, 234, 246, ${0.55 * sky.moonAlpha})`);
-    halo.addColorStop(0.3, `rgba(222, 230, 246, ${0.22 * sky.moonAlpha})`);
-    halo.addColorStop(1, "rgba(222, 230, 246, 0)");
+    const r = Math.max(14, Math.min(26, Math.min(w, h) * 0.022));
+    const a = sky.moonAlpha;
+    const halo = c.createRadialGradient(mx, my, r * 0.6, mx, my, r * 2.4);
+    halo.addColorStop(0, `rgba(226, 232, 248, ${0.3 * a})`);
+    halo.addColorStop(1, "rgba(226, 232, 248, 0)");
     c.fillStyle = halo;
     c.beginPath();
-    c.arc(mx, my, r * 3.2, 0, Math.PI * 2);
+    c.arc(mx, my, r * 2.4, 0, Math.PI * 2);
     c.fill();
-    c.globalAlpha = 0.9 * sky.moonAlpha;
-    c.fillStyle = "#e9edf8";
+    const disc = c.createRadialGradient(mx - r * 0.2, my - r * 0.2, r * 0.2, mx, my, r);
+    disc.addColorStop(0, `rgba(240, 244, 252, ${0.95 * a})`);
+    disc.addColorStop(0.75, `rgba(228, 234, 248, ${0.92 * a})`);
+    disc.addColorStop(1, `rgba(196, 208, 232, ${0.85 * a})`);
+    c.fillStyle = disc;
     c.beginPath();
     c.arc(mx, my, r, 0, Math.PI * 2);
     c.fill();
-    c.globalAlpha = 1;
+    c.save();
+    c.beginPath();
+    c.arc(mx, my, r, 0, Math.PI * 2);
+    c.clip();
+    c.fillStyle = `rgba(148, 162, 196, ${0.32 * a})`;
+    for (const [ox, oy, or] of MOON_MARIA) {
+      c.beginPath();
+      c.arc(mx + ox * r, my + oy * r, or * r, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.restore();
   }
   /** 流れ星。1〜2分半に一度、夜空をすっと横切る */
   updateShootingStar(c, w, h, dt, now, starDim) {
@@ -910,8 +931,8 @@ var ParticleLayer = class {
 // src/ambience/sky.ts
 var TIME_SCALE = 10;
 var START_HOUR = 18;
-var MOON_RISE = 20;
-var MOON_SET = 28.5;
+var MOON_START = 18;
+var MOON_END = 28.8;
 var KEYFRAMES = [
   // 夕焼けの名残り
   { h: 18, sky: ["#3a3f6e", "#7a5580", "#e8875a"], text: "#f2e8dc", muted: "#c9b39e", vig: [40, 20, 40, 0.5], star: 0 },
@@ -937,6 +958,7 @@ var INLINE_PROPS = [
   "background-size",
   "--iw-text",
   "--iw-text-muted",
+  "--iw-text-glow",
   "--iw-vignette-color"
 ];
 var hex = (s) => [
@@ -945,12 +967,18 @@ var hex = (s) => [
   parseInt(s.slice(5, 7), 16)
 ];
 var mixN = (a, b, x) => a + (b - a) * x;
-var mixHex = (a, b, x) => {
+var mixRgb = (a, b, x) => {
   const ca = hex(a);
   const cb = hex(b);
-  return `rgb(${Math.round(mixN(ca[0], cb[0], x))}, ${Math.round(mixN(ca[1], cb[1], x))}, ${Math.round(
-    mixN(ca[2], cb[2], x)
-  )})`;
+  return [
+    Math.round(mixN(ca[0], cb[0], x)),
+    Math.round(mixN(ca[1], cb[1], x)),
+    Math.round(mixN(ca[2], cb[2], x))
+  ];
+};
+var mixHex = (a, b, x) => {
+  const [r, g, bl] = mixRgb(a, b, x);
+  return `rgb(${r}, ${g}, ${bl})`;
 };
 var SkyCycle = class {
   constructor() {
@@ -998,6 +1026,8 @@ var SkyCycle = class {
     st.setProperty("background-size", "100% 100%");
     st.setProperty("--iw-text", text);
     st.setProperty("--iw-text-muted", muted);
+    const glow = mixRgb(a.sky[1], b.sky[1], x);
+    st.setProperty("--iw-text-glow", `rgba(${glow[0]}, ${glow[1]}, ${glow[2]}, 0.85)`);
     st.setProperty(
       "--iw-vignette-color",
       `rgba(${Math.round(vig[0])}, ${Math.round(vig[1])}, ${Math.round(vig[2])}, ${vig[3].toFixed(2)})`
@@ -1005,12 +1035,12 @@ var SkyCycle = class {
     let moonX = 0;
     let moonY = 0;
     let moonAlpha = 0;
-    if (h > MOON_RISE && h < MOON_SET) {
-      const q = (h - MOON_RISE) / (MOON_SET - MOON_RISE);
-      moonX = 0.12 + 0.72 * q;
-      moonY = 0.34 - 0.24 * Math.sin(Math.PI * q);
-      const edge = Math.min(1, Math.min(q, 1 - q) / 0.08);
-      moonAlpha = 0.85 * edge * Math.min(1, star * 1.2);
+    if (h >= MOON_START && h <= MOON_END) {
+      const q = (h - MOON_START) / (MOON_END - MOON_START);
+      moonX = 0.14 + 0.72 * q;
+      moonY = 0.13 - 0.06 * Math.sin(Math.PI * q);
+      const setFade = Math.min(1, (1 - q) / 0.07);
+      moonAlpha = (0.22 + 0.7 * star) * setFade;
     }
     this.state = { starAlpha: star, moonX, moonY, moonAlpha };
   }

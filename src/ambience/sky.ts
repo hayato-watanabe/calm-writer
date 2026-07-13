@@ -21,8 +21,9 @@ export interface SkyState {
 const TIME_SCALE = 10;
 /** 開始時の作中時刻（時） */
 const START_HOUR = 18;
-const MOON_RISE = 20;
-const MOON_SET = 28.5; // 4:30
+/** 月は夕暮れから既に空にあり、夜明け前に沈む */
+const MOON_START = 18.0;
+const MOON_END = 28.8;
 
 interface SkyKeyframe {
 	h: number; // 作中時刻（24を超えて連続）
@@ -59,6 +60,7 @@ const INLINE_PROPS = [
 	"background-size",
 	"--iw-text",
 	"--iw-text-muted",
+	"--iw-text-glow",
 	"--iw-vignette-color",
 ];
 
@@ -68,12 +70,18 @@ const hex = (s: string): [number, number, number] => [
 	parseInt(s.slice(5, 7), 16),
 ];
 const mixN = (a: number, b: number, x: number) => a + (b - a) * x;
-const mixHex = (a: string, b: string, x: number): string => {
+const mixRgb = (a: string, b: string, x: number): [number, number, number] => {
 	const ca = hex(a);
 	const cb = hex(b);
-	return `rgb(${Math.round(mixN(ca[0], cb[0], x))}, ${Math.round(mixN(ca[1], cb[1], x))}, ${Math.round(
-		mixN(ca[2], cb[2], x)
-	)})`;
+	return [
+		Math.round(mixN(ca[0], cb[0], x)),
+		Math.round(mixN(ca[1], cb[1], x)),
+		Math.round(mixN(ca[2], cb[2], x)),
+	];
+};
+const mixHex = (a: string, b: string, x: number): string => {
+	const [r, g, bl] = mixRgb(a, b, x);
+	return `rgb(${r}, ${g}, ${bl})`;
 };
 
 export class SkyCycle {
@@ -127,21 +135,25 @@ export class SkyCycle {
 		st.setProperty("background-size", "100% 100%");
 		st.setProperty("--iw-text", text);
 		st.setProperty("--iw-text-muted", muted);
+		// 文字の背後に敷く「空の色のにじみ」。月や星と重なっても文字が沈まない
+		const glow = mixRgb(a.sky[1], b.sky[1], x);
+		st.setProperty("--iw-text-glow", `rgba(${glow[0]}, ${glow[1]}, ${glow[2]}, 0.85)`);
 		st.setProperty(
 			"--iw-vignette-color",
 			`rgba(${Math.round(vig[0])}, ${Math.round(vig[1])}, ${Math.round(vig[2])}, ${vig[3].toFixed(2)})`
 		);
 
-		// 月の運行: 夜のあいだに画面を左から右へゆっくり渡る
+		// 月の運行: 夕暮れからほのかに空にあり、暗くなるほど輝きを増しながら
+		// 画面上端の浅い弧を左から右へ渡り、夜明け前に沈む
 		let moonX = 0;
 		let moonY = 0;
 		let moonAlpha = 0;
-		if (h > MOON_RISE && h < MOON_SET) {
-			const q = (h - MOON_RISE) / (MOON_SET - MOON_RISE);
-			moonX = 0.12 + 0.72 * q;
-			moonY = 0.34 - 0.24 * Math.sin(Math.PI * q);
-			const edge = Math.min(1, Math.min(q, 1 - q) / 0.08); // 出入りはフェード
-			moonAlpha = 0.85 * edge * Math.min(1, star * 1.2); // 空が暗いときだけ見える
+		if (h >= MOON_START && h <= MOON_END) {
+			const q = (h - MOON_START) / (MOON_END - MOON_START);
+			moonX = 0.14 + 0.72 * q;
+			moonY = 0.13 - 0.06 * Math.sin(Math.PI * q);
+			const setFade = Math.min(1, (1 - q) / 0.07); // 沈むときだけフェードアウト
+			moonAlpha = (0.22 + 0.7 * star) * setFade;
 		}
 
 		this.state = { starAlpha: star, moonX, moonY, moonAlpha };

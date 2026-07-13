@@ -23,6 +23,16 @@ interface ShootingStar {
 
 const FLARE_DUR = 1.6;
 
+/** 月の海（暗い模様）の配置。[x, y, 半径] いずれも月の半径に対する割合 */
+const MOON_MARIA: [number, number, number][] = [
+	[-0.28, -0.12, 0.42],
+	[0.26, 0.08, 0.3],
+	[0.02, 0.38, 0.26],
+	[-0.14, -0.46, 0.18],
+	[0.42, -0.28, 0.14],
+	[0.18, -0.2, 0.16],
+];
+
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 /**
@@ -199,21 +209,40 @@ export class ParticleLayer {
 		if (sky.moonAlpha < 0.01) return;
 		const mx = sky.moonX * w;
 		const my = sky.moonY * h;
-		const r = Math.min(w, h) * 0.035;
-		const halo = c.createRadialGradient(mx, my, 0, mx, my, r * 3.2);
-		halo.addColorStop(0, `rgba(228, 234, 246, ${0.55 * sky.moonAlpha})`);
-		halo.addColorStop(0.3, `rgba(222, 230, 246, ${0.22 * sky.moonAlpha})`);
-		halo.addColorStop(1, "rgba(222, 230, 246, 0)");
+		const r = Math.max(14, Math.min(26, Math.min(w, h) * 0.022));
+		const a = sky.moonAlpha;
+
+		// 控えめな光暈。空が暗いほど広がって見える
+		const halo = c.createRadialGradient(mx, my, r * 0.6, mx, my, r * 2.4);
+		halo.addColorStop(0, `rgba(226, 232, 248, ${0.3 * a})`);
+		halo.addColorStop(1, "rgba(226, 232, 248, 0)");
 		c.fillStyle = halo;
 		c.beginPath();
-		c.arc(mx, my, r * 3.2, 0, Math.PI * 2);
+		c.arc(mx, my, r * 2.4, 0, Math.PI * 2);
 		c.fill();
-		c.globalAlpha = 0.9 * sky.moonAlpha;
-		c.fillStyle = "#e9edf8";
+
+		// 本体。縁をわずかに暗くして球らしさを出す
+		const disc = c.createRadialGradient(mx - r * 0.2, my - r * 0.2, r * 0.2, mx, my, r);
+		disc.addColorStop(0, `rgba(240, 244, 252, ${0.95 * a})`);
+		disc.addColorStop(0.75, `rgba(228, 234, 248, ${0.92 * a})`);
+		disc.addColorStop(1, `rgba(196, 208, 232, ${0.85 * a})`);
+		c.fillStyle = disc;
 		c.beginPath();
 		c.arc(mx, my, r, 0, Math.PI * 2);
 		c.fill();
-		c.globalAlpha = 1;
+
+		// 海（暗い模様）。月面に固定した配置で描く
+		c.save();
+		c.beginPath();
+		c.arc(mx, my, r, 0, Math.PI * 2);
+		c.clip();
+		c.fillStyle = `rgba(148, 162, 196, ${0.32 * a})`;
+		for (const [ox, oy, or] of MOON_MARIA) {
+			c.beginPath();
+			c.arc(mx + ox * r, my + oy * r, or * r, 0, Math.PI * 2);
+			c.fill();
+		}
+		c.restore();
 	}
 
 	/** 流れ星。1〜2分半に一度、夜空をすっと横切る */

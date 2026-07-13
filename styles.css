@@ -292,6 +292,15 @@ body.immersive-writer-zen.immersive-writer-scene-night {
 	--iw-selection: rgba(120, 140, 220, 0.3);
 	--iw-vignette-color: rgba(0, 0, 10, 0.65);
 	--iw-panel-bg: rgba(12, 16, 30, 0.55);
+	--iw-text-glow: rgba(13, 17, 40, 0.85);
+}
+
+/* 月や明るい星と重なっても文字が沈まないよう、
+   文字の輪郭の背後に空の色のにじみを敷く（時間経過中は空の色に追従） */
+body.immersive-writer-zen.immersive-writer-scene-night .markdown-source-view .cm-content,
+body.immersive-writer-zen.immersive-writer-scene-night .markdown-preview-view,
+body.immersive-writer-zen.immersive-writer-scene-night .inline-title {
+	text-shadow: 0 0 2px var(--iw-text-glow), 0 0 8px var(--iw-text-glow);
 }
 
 /* 森 — 深緑の中に光の粒がのぼる */
