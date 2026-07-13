@@ -4,9 +4,10 @@ import { AudioEngine } from "./audio/engine";
 import { KeyKind, KeySchemeId, KeySoundPlayer } from "./audio/keySounds";
 import { BgmMoodId, BgmPlayer } from "./audio/bgm";
 import { ParticleLayer } from "./ambience/particles";
+import { SkyCycle } from "./ambience/sky";
 import { ZenController } from "./ambience/zenMode";
 import { ZenPanel } from "./ambience/panel";
-import { getScene, SCENES } from "./ambience/scenes";
+import { getScene, Scene, SCENES } from "./ambience/scenes";
 import { ImmersiveWriterSettings, ImmersiveWriterSettingTab, DEFAULT_SETTINGS } from "./settings";
 
 const CSS_VARS = [
@@ -23,6 +24,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 	keySounds = new KeySoundPlayer(this.engine);
 	bgm = new BgmPlayer(this.engine);
 	particles = new ParticleLayer();
+	sky = new SkyCycle();
 	panel = new ZenPanel(this);
 	zen!: ZenController;
 
@@ -94,7 +96,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 	enterZen(): void {
 		const scene = getScene(this.settings.sceneId);
 		this.zen.enter(scene.id, this.settings.fullscreen);
-		if (this.settings.particlesEnabled) this.particles.start(scene.particles);
+		this.applyAmbience(scene);
 		if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(this.effectiveMood());
 		this.panel.show();
 		this.engine.resume();
@@ -104,6 +106,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		if (!this.zen.active) return;
 		this.zen.exit();
 		this.panel.hide();
+		this.sky.stop();
 		this.particles.stop();
 		this.bgm.stop();
 	}
@@ -115,7 +118,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		const scene = getScene(sceneId);
 		if (this.zen.active) {
 			this.zen.applyScene(scene.id);
-			this.refreshParticles();
+			this.applyAmbience(scene);
 			// BGMがシーン連動のときだけムードを追従させる
 			if (this.bgm.playing && this.settings.bgmMood === "auto") {
 				this.bgm.switchMood(scene.mood);
@@ -125,13 +128,20 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		if (notify) new Notice(`シーン: ${scene.name}`);
 	}
 
-	refreshParticles(): void {
-		if (!this.zen.active) return;
+	/** 空の時間経過とパーティクルを現在のシーン・設定に合わせて張り直す */
+	private applyAmbience(scene: Scene): void {
+		if (this.settings.nightCycle && scene.id === "night") this.sky.start();
+		else this.sky.stop();
 		if (this.settings.particlesEnabled) {
-			this.particles.start(getScene(this.settings.sceneId).particles);
+			this.particles.start(scene.particles, () => this.sky.state);
 		} else {
 			this.particles.stop();
 		}
+	}
+
+	refreshAmbience(): void {
+		if (!this.zen.active) return;
+		this.applyAmbience(getScene(this.settings.sceneId));
 	}
 
 	// ---- 音 ----

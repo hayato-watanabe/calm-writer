@@ -690,6 +690,8 @@ var BgmPlayer = class {
 };
 
 // src/ambience/particles.ts
+var FLARE_DUR = 1.6;
+var rand2 = (a, b) => a + Math.random() * (b - a);
 var ParticleLayer = class {
   constructor() {
     this.canvas = null;
@@ -699,17 +701,33 @@ var ParticleLayer = class {
     this.kind = "snow";
     this.lastTime = 0;
     this.onResize = () => this.resize();
+    /** 空の状態（夜空の時間経過が動いているときだけ non-null を返す） */
+    this.skyProvider = null;
+    // 雪の突風
+    this.gustAt = 0;
+    this.gustStart = 0;
+    this.gustDur = 0;
+    this.gustDir = 1;
+    // 流れ星
+    this.nextShootAt = 0;
+    this.shooting = null;
   }
-  start(kind) {
+  start(kind, sky) {
     this.stop();
     if (kind === "none") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     this.kind = kind;
+    this.skyProvider = sky != null ? sky : null;
     this.canvas = document.body.createEl("canvas", { cls: "immersive-writer-particles" });
     this.ctx2d = this.canvas.getContext("2d");
     window.addEventListener("resize", this.onResize);
     this.resize();
-    this.lastTime = performance.now();
+    const now = performance.now();
+    this.lastTime = now;
+    this.gustAt = now + rand2(30, 90) * 1e3;
+    this.gustStart = 0;
+    this.nextShootAt = now + rand2(30, 120) * 1e3;
+    this.shooting = null;
     this.raf = window.requestAnimationFrame((t) => this.frame(t));
   }
   stop() {
@@ -721,6 +739,7 @@ var ParticleLayer = class {
     this.canvas = null;
     this.ctx2d = null;
     this.items = [];
+    this.skyProvider = null;
   }
   resize() {
     var _a;
@@ -744,7 +763,8 @@ var ParticleLayer = class {
         r: this.kind === "stars" ? 0.5 + Math.random() * 1.2 : 0.8 + Math.random() * 2.2,
         speed: this.kind === "snow" ? 18 + Math.random() * 40 : 4 + Math.random() * 8,
         phase: Math.random() * Math.PI * 2,
-        alpha: 0.3 + Math.random() * 0.5
+        alpha: 0.3 + Math.random() * 0.5,
+        flare: 0
       });
     }
   }
@@ -757,11 +777,16 @@ var ParticleLayer = class {
     const c = this.ctx2d;
     const t = now / 1e3;
     c.clearRect(0, 0, w, h);
+    const sky = this.skyProvider ? this.skyProvider() : null;
+    const starDim = sky ? sky.starAlpha : 1;
+    if (this.kind === "stars" && sky) this.drawMoon(c, w, h, sky);
+    const wind = this.kind === "snow" ? this.windStrength(now, t) : 0;
     for (const p of this.items) {
       let alpha = p.alpha;
+      let r = p.r;
       if (this.kind === "snow") {
         p.y += p.speed * dt;
-        p.x += Math.sin(t * 0.7 + p.phase) * 12 * dt;
+        p.x += (Math.sin(t * 0.7 + p.phase) * 12 + wind * (3.4 - p.r) / 2.6) * dt;
         if (p.y > h + 4) {
           p.y = -4;
           p.x = Math.random() * w;
@@ -770,7 +795,8 @@ var ParticleLayer = class {
         else if (p.x < -4) p.x = w + 4;
         c.fillStyle = "#ffffff";
       } else if (this.kind === "stars") {
-        alpha = p.alpha * (0.55 + 0.45 * Math.sin(t * (0.3 + p.phase * 0.15) + p.phase));
+        alpha = p.alpha * (0.55 + 0.45 * Math.sin(t * (0.3 + p.phase * 0.15) + p.phase)) * starDim;
+        if (alpha < 0.01) continue;
         c.fillStyle = "#dfe6ff";
       } else {
         p.y -= p.speed * dt;
@@ -779,15 +805,214 @@ var ParticleLayer = class {
           p.y = h + 4;
           p.x = Math.random() * w;
         }
+        if (p.flare > 0) {
+          p.flare = Math.max(0, p.flare - dt);
+          const fp = 1 - p.flare / FLARE_DUR;
+          const glow = Math.sin(Math.PI * fp);
+          alpha = p.alpha + glow * 0.45;
+          r = p.r + glow * 0.8;
+        } else if (Math.random() < dt * 2e-3) {
+          p.flare = FLARE_DUR;
+        }
         c.fillStyle = "#cfe8c0";
       }
       c.globalAlpha = alpha;
       c.beginPath();
-      c.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      c.arc(p.x, p.y, r, 0, Math.PI * 2);
       c.fill();
     }
     c.globalAlpha = 1;
+    if (this.kind === "stars") this.updateShootingStar(c, w, h, dt, now, starDim);
     this.raf = window.requestAnimationFrame((n) => this.frame(n));
+  }
+  /** 雪の横風。ふだんは微風、ときどき数秒間の突風が吹く */
+  windStrength(now, t) {
+    let wind = Math.sin(t * 0.05) * 6;
+    if (this.gustStart === 0 && now >= this.gustAt) {
+      this.gustStart = now;
+      this.gustDur = rand2(5, 10) * 1e3;
+      this.gustDir = Math.random() < 0.5 ? -1 : 1;
+    }
+    if (this.gustStart > 0) {
+      const gp = (now - this.gustStart) / this.gustDur;
+      if (gp >= 1) {
+        this.gustStart = 0;
+        this.gustAt = now + rand2(60, 180) * 1e3;
+      } else {
+        wind += Math.sin(Math.PI * gp) * 55 * this.gustDir;
+      }
+    }
+    return wind;
+  }
+  /** 月。時間経過(SkyCycle)が動いているときだけ夜空を渡っていく */
+  drawMoon(c, w, h, sky) {
+    if (sky.moonAlpha < 0.01) return;
+    const mx = sky.moonX * w;
+    const my = sky.moonY * h;
+    const r = Math.min(w, h) * 0.035;
+    const halo = c.createRadialGradient(mx, my, 0, mx, my, r * 3.2);
+    halo.addColorStop(0, `rgba(228, 234, 246, ${0.55 * sky.moonAlpha})`);
+    halo.addColorStop(0.3, `rgba(222, 230, 246, ${0.22 * sky.moonAlpha})`);
+    halo.addColorStop(1, "rgba(222, 230, 246, 0)");
+    c.fillStyle = halo;
+    c.beginPath();
+    c.arc(mx, my, r * 3.2, 0, Math.PI * 2);
+    c.fill();
+    c.globalAlpha = 0.9 * sky.moonAlpha;
+    c.fillStyle = "#e9edf8";
+    c.beginPath();
+    c.arc(mx, my, r, 0, Math.PI * 2);
+    c.fill();
+    c.globalAlpha = 1;
+  }
+  /** 流れ星。1〜2分半に一度、夜空をすっと横切る */
+  updateShootingStar(c, w, h, dt, now, starDim) {
+    if (!this.shooting && now >= this.nextShootAt) {
+      this.nextShootAt = now + rand2(45, 150) * 1e3;
+      if (starDim > 0.5) {
+        const dir = Math.random() < 0.5 ? -1 : 1;
+        const speed = Math.max(w, h) * rand2(0.9, 1.3);
+        const angle = rand2(0.35, 0.6);
+        this.shooting = {
+          x: rand2(0.15, 0.85) * w,
+          y: rand2(0.05, 0.3) * h,
+          vx: dir * Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: rand2(0.5, 0.8),
+          age: 0
+        };
+      }
+    }
+    const s = this.shooting;
+    if (!s) return;
+    s.age += dt;
+    if (s.age >= s.life) {
+      this.shooting = null;
+      return;
+    }
+    s.x += s.vx * dt;
+    s.y += s.vy * dt;
+    const fade = Math.sin(Math.PI * (s.age / s.life));
+    const tail = 0.09;
+    const grad = c.createLinearGradient(s.x, s.y, s.x - s.vx * tail, s.y - s.vy * tail);
+    grad.addColorStop(0, `rgba(255, 255, 255, ${0.9 * fade * starDim})`);
+    grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    c.strokeStyle = grad;
+    c.lineWidth = 1.6;
+    c.lineCap = "round";
+    c.beginPath();
+    c.moveTo(s.x, s.y);
+    c.lineTo(s.x - s.vx * tail, s.y - s.vy * tail);
+    c.stroke();
+  }
+};
+
+// src/ambience/sky.ts
+var TIME_SCALE = 10;
+var START_HOUR = 18;
+var MOON_RISE = 20;
+var MOON_SET = 28.5;
+var KEYFRAMES = [
+  // 夕焼けの名残り
+  { h: 18, sky: ["#3a3f6e", "#7a5580", "#e8875a"], text: "#f2e8dc", muted: "#c9b39e", vig: [40, 20, 40, 0.5], star: 0 },
+  // 残照が消えていく
+  { h: 19.2, sky: ["#232b52", "#463a66", "#a85a4e"], text: "#dcd8e0", muted: "#a49aae", vig: [20, 10, 35, 0.55], star: 0.35 },
+  // 夜
+  { h: 20.5, sky: ["#0a0e22", "#141a38", "#232b52"], text: "#c9d3e8", muted: "#6d7a99", vig: [0, 0, 10, 0.65], star: 1 },
+  // 真夜中
+  { h: 24, sky: ["#05070f", "#0a0e1e", "#121631"], text: "#b9c4da", muted: "#5d6a89", vig: [0, 0, 8, 0.7], star: 1 },
+  // 夜明け前の最も暗い時間
+  { h: 28, sky: ["#06080f", "#0b101f", "#141a38"], text: "#b9c4da", muted: "#5d6a89", vig: [0, 0, 8, 0.7], star: 1 },
+  // 東の空が薄まってくる
+  { h: 29, sky: ["#0a1026", "#1b2450", "#31406e"], text: "#c2cbe0", muted: "#6d7a99", vig: [5, 5, 25, 0.6], star: 0.8 },
+  // 夜明け
+  { h: 29.8, sky: ["#1d2b52", "#50639a", "#e08a5f"], text: "#e8e4da", muted: "#b0a89a", vig: [25, 25, 55, 0.5], star: 0.25 },
+  // 日の出
+  { h: 30.3, sky: ["#5b83b8", "#93b2d6", "#e8c9a8"], text: "#4a5468", muted: "#8593a8", vig: [60, 85, 120, 0.4], star: 0 },
+  // 朝（ここで静止）
+  { h: 31, sky: ["#7fa8d0", "#a8c4dd", "#e6dcc8"], text: "#3f4c5e", muted: "#84919f", vig: [70, 100, 140, 0.35], star: 0 }
+];
+var INLINE_PROPS = [
+  "background-image",
+  "background-size",
+  "--iw-text",
+  "--iw-text-muted",
+  "--iw-vignette-color"
+];
+var hex = (s) => [
+  parseInt(s.slice(1, 3), 16),
+  parseInt(s.slice(3, 5), 16),
+  parseInt(s.slice(5, 7), 16)
+];
+var mixN = (a, b, x) => a + (b - a) * x;
+var mixHex = (a, b, x) => {
+  const ca = hex(a);
+  const cb = hex(b);
+  return `rgb(${Math.round(mixN(ca[0], cb[0], x))}, ${Math.round(mixN(ca[1], cb[1], x))}, ${Math.round(
+    mixN(ca[2], cb[2], x)
+  )})`;
+};
+var SkyCycle = class {
+  constructor() {
+    /** 実行中のみ非null。パーティクル層が毎フレーム参照する */
+    this.state = null;
+    this.timer = null;
+    this.startedAt = 0;
+  }
+  start() {
+    if (this.timer !== null) return;
+    this.startedAt = Date.now();
+    this.tick();
+    this.timer = window.setInterval(() => this.tick(), 1e3);
+  }
+  stop() {
+    if (this.timer !== null) {
+      window.clearInterval(this.timer);
+      this.timer = null;
+    }
+    this.state = null;
+    for (const p of INLINE_PROPS) document.body.style.removeProperty(p);
+  }
+  tick() {
+    const elapsed = (Date.now() - this.startedAt) / 1e3;
+    const h = START_HOUR + elapsed * TIME_SCALE / 3600;
+    const last = KEYFRAMES[KEYFRAMES.length - 1];
+    let a = KEYFRAMES[0];
+    let b = last;
+    for (let i = 0; i < KEYFRAMES.length - 1; i++) {
+      if (h >= KEYFRAMES[i].h && h <= KEYFRAMES[i + 1].h) {
+        a = KEYFRAMES[i];
+        b = KEYFRAMES[i + 1];
+        break;
+      }
+    }
+    const x = h >= last.h ? 1 : Math.max(0, Math.min(1, (h - a.h) / (b.h - a.h)));
+    if (h >= last.h) a = last;
+    const sky = [0, 1, 2].map((i) => mixHex(a.sky[i], b.sky[i], x));
+    const text = mixHex(a.text, b.text, x);
+    const muted = mixHex(a.muted, b.muted, x);
+    const vig = a.vig.map((v, i) => mixN(v, b.vig[i], x));
+    const star = mixN(a.star, b.star, x);
+    const st = document.body.style;
+    st.setProperty("background-image", `linear-gradient(180deg, ${sky[0]} 0%, ${sky[1]} 55%, ${sky[2]} 100%)`);
+    st.setProperty("background-size", "100% 100%");
+    st.setProperty("--iw-text", text);
+    st.setProperty("--iw-text-muted", muted);
+    st.setProperty(
+      "--iw-vignette-color",
+      `rgba(${Math.round(vig[0])}, ${Math.round(vig[1])}, ${Math.round(vig[2])}, ${vig[3].toFixed(2)})`
+    );
+    let moonX = 0;
+    let moonY = 0;
+    let moonAlpha = 0;
+    if (h > MOON_RISE && h < MOON_SET) {
+      const q = (h - MOON_RISE) / (MOON_SET - MOON_RISE);
+      moonX = 0.12 + 0.72 * q;
+      moonY = 0.34 - 0.24 * Math.sin(Math.PI * q);
+      const edge = Math.min(1, Math.min(q, 1 - q) / 0.08);
+      moonAlpha = 0.85 * edge * Math.min(1, star * 1.2);
+    }
+    this.state = { starAlpha: star, moonX, moonY, moonAlpha };
   }
 };
 
@@ -949,6 +1174,7 @@ var DEFAULT_SETTINGS = {
   fullscreen: true,
   vignette: 0.5,
   particlesEnabled: true,
+  nightCycle: true,
   typewriterScroll: true,
   keySoundsEnabled: true,
   keySoundsEverywhere: false,
@@ -1002,7 +1228,14 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("\u30D1\u30FC\u30C6\u30A3\u30AF\u30EB").setDesc("\u96EA\u30FB\u661F\u306A\u3069\u306E\u7C92\u5B50\u6F14\u51FA\u3092\u8868\u793A\u3057\u307E\u3059\u3002").addToggle(
       (tg) => tg.setValue(s.particlesEnabled).onChange(async (v) => {
         s.particlesEnabled = v;
-        this.plugin.refreshParticles();
+        this.plugin.refreshAmbience();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("\u591C\u7A7A\u306B\u6642\u9593\u306E\u6D41\u308C").setDesc("\u5915\u66AE\u308C\u304B\u3089\u591C\u660E\u3051\u307E\u3067\u3092\u7D0475\u5206\u304B\u3051\u3066\u63CF\u304D\u307E\u3059\uFF08\u5B9F\u6642\u95931\u5206 = \u4F5C\u4E2D10\u5206\uFF09\u3002\u6708\u3068\u6D41\u308C\u661F\u3082\u73FE\u308C\u307E\u3059\u3002").addToggle(
+      (tg) => tg.setValue(s.nightCycle).onChange(async (v) => {
+        s.nightCycle = v;
+        this.plugin.refreshAmbience();
         await this.plugin.saveSettings();
       })
     );
@@ -1122,6 +1355,7 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     this.keySounds = new KeySoundPlayer(this.engine);
     this.bgm = new BgmPlayer(this.engine);
     this.particles = new ParticleLayer();
+    this.sky = new SkyCycle();
     this.panel = new ZenPanel(this);
   }
   async onload() {
@@ -1182,7 +1416,7 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
   enterZen() {
     const scene = getScene(this.settings.sceneId);
     this.zen.enter(scene.id, this.settings.fullscreen);
-    if (this.settings.particlesEnabled) this.particles.start(scene.particles);
+    this.applyAmbience(scene);
     if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(this.effectiveMood());
     this.panel.show();
     this.engine.resume();
@@ -1191,6 +1425,7 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     if (!this.zen.active) return;
     this.zen.exit();
     this.panel.hide();
+    this.sky.stop();
     this.particles.stop();
     this.bgm.stop();
   }
@@ -1201,7 +1436,7 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     const scene = getScene(sceneId);
     if (this.zen.active) {
       this.zen.applyScene(scene.id);
-      this.refreshParticles();
+      this.applyAmbience(scene);
       if (this.bgm.playing && this.settings.bgmMood === "auto") {
         this.bgm.switchMood(scene.mood);
       }
@@ -1209,13 +1444,19 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     this.panel.refresh();
     if (notify) new import_obsidian2.Notice(`\u30B7\u30FC\u30F3: ${scene.name}`);
   }
-  refreshParticles() {
-    if (!this.zen.active) return;
+  /** 空の時間経過とパーティクルを現在のシーン・設定に合わせて張り直す */
+  applyAmbience(scene) {
+    if (this.settings.nightCycle && scene.id === "night") this.sky.start();
+    else this.sky.stop();
     if (this.settings.particlesEnabled) {
-      this.particles.start(getScene(this.settings.sceneId).particles);
+      this.particles.start(scene.particles, () => this.sky.state);
     } else {
       this.particles.stop();
     }
+  }
+  refreshAmbience() {
+    if (!this.zen.active) return;
+    this.applyAmbience(getScene(this.settings.sceneId));
   }
   // ---- 音 ----
   toggleBgm() {

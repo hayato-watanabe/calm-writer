@@ -9,6 +9,7 @@ export interface ImmersiveWriterSettings {
 	fullscreen: boolean;
 	vignette: number; // 0..1
 	particlesEnabled: boolean;
+	nightCycle: boolean;
 	typewriterScroll: boolean;
 	keySoundsEnabled: boolean;
 	keySoundsEverywhere: boolean;
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: ImmersiveWriterSettings = {
 	fullscreen: true,
 	vignette: 0.5,
 	particlesEnabled: true,
+	nightCycle: true,
 	typewriterScroll: true,
 	keySoundsEnabled: true,
 	keySoundsEverywhere: false,
@@ -107,7 +109,18 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 			.addToggle((tg) =>
 				tg.setValue(s.particlesEnabled).onChange(async (v) => {
 					s.particlesEnabled = v;
-					this.plugin.refreshParticles();
+					this.plugin.refreshAmbience();
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("夜空に時間の流れ")
+			.setDesc("夕暮れから夜明けまでを約75分かけて描きます（実時間1分 = 作中10分）。月と流れ星も現れます。")
+			.addToggle((tg) =>
+				tg.setValue(s.nightCycle).onChange(async (v) => {
+					s.nightCycle = v;
+					this.plugin.refreshAmbience();
 					await this.plugin.saveSettings();
 				})
 			);
