@@ -220,12 +220,30 @@ body.immersive-writer-zen ::-webkit-scrollbar {
 	margin-top: 12px;
 }
 
+.immersive-writer-panel-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin: 0 4px 4px 10px;
+}
+
 .immersive-writer-panel-title {
 	font-size: 10px;
 	letter-spacing: 0.14em;
 	opacity: 0.55;
-	margin: 0 0 4px 10px;
 	color: var(--iw-text, var(--text-muted));
+}
+
+.immersive-writer-panel-switch {
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+/* スイッチOFF中は配下の選択肢を非活性に */
+.immersive-writer-panel-options.is-disabled {
+	opacity: 0.35;
+	pointer-events: none;
 }
 
 .immersive-writer-panel-option {
@@ -339,12 +357,17 @@ body.immersive-writer-zen.immersive-writer-scene-forest {
 	--iw-panel-bg: rgba(10, 20, 16, 0.55);
 }
 
-/* 白い紙 — 何もない温かな白 */
+/* セピア — ざらりとした古い紙。SVGノイズで紙の粒子を重ねる */
 body.immersive-writer-zen.immersive-writer-scene-paper {
-	background-image: linear-gradient(170deg, #f8f5ee 0%, #f3efe6 50%, #ece7db 100%);
-	--iw-text: #4a453c;
-	--iw-text-muted: #a09a8c;
-	--iw-selection: rgba(180, 160, 120, 0.28);
-	--iw-vignette-color: rgba(90, 80, 60, 0.35);
-	--iw-panel-bg: rgba(255, 253, 247, 0.65);
+	background-image:
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E"),
+		linear-gradient(170deg, #e9dcc3 0%, #e2d2b2 50%, #d5c29c 100%);
+	background-repeat: repeat, no-repeat;
+	background-size: 180px 180px, 100% 100%;
+	animation: none; /* 紙は漂わない */
+	--iw-text: #4b4844;
+	--iw-text-muted: #8b8477;
+	--iw-selection: rgba(150, 115, 60, 0.25);
+	--iw-vignette-color: rgba(95, 75, 45, 0.4);
+	--iw-panel-bg: rgba(248, 240, 224, 0.65);
 }

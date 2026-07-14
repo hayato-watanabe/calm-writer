@@ -163,32 +163,38 @@ export default class ImmersiveWriterPlugin extends Plugin {
 			: this.settings.bgmMood;
 	}
 
-	/** パネルからのBGM切り替え。オフ以外を選ぶと再生も始める */
-	async setBgmChoice(choice: "auto" | "off" | BgmMoodId): Promise<void> {
-		if (choice === "off") {
-			this.settings.bgmEnabled = false;
-			this.bgm.stop();
-		} else {
-			this.settings.bgmEnabled = true;
-			this.settings.bgmMood = choice;
-			const mood = this.effectiveMood();
-			if (this.bgm.playing) this.bgm.switchMood(mood);
-			else this.bgm.start(mood);
-		}
+	/** BGMのON/OFF。オンにすると（没入モード中なら）すぐ再生が始まる */
+	async setBgmEnabled(on: boolean): Promise<void> {
+		this.settings.bgmEnabled = on;
+		if (!on) this.bgm.stop();
+		else if (this.zen.active && !this.bgm.playing) this.bgm.start(this.effectiveMood());
 		await this.saveSettings();
 		this.panel.refresh();
 	}
 
-	/** パネルからの打鍵音切り替え。音色を選ぶとサンプルを鳴らす */
-	async setKeySoundChoice(choice: KeySchemeId | "off"): Promise<void> {
-		if (choice === "off") {
-			this.settings.keySoundsEnabled = false;
-		} else {
-			this.settings.keySoundsEnabled = true;
-			this.settings.keySoundScheme = choice;
-			this.applyAudioSettings();
-			this.keySounds.play("key", "KeyA"); // 母音扱いで試聴
-		}
+	/** タイプ音のON/OFF。オンにするとサンプルを1音鳴らす */
+	async setKeySoundsEnabled(on: boolean): Promise<void> {
+		this.settings.keySoundsEnabled = on;
+		if (on) this.keySounds.play("key", "KeyA");
+		await this.saveSettings();
+		this.panel.refresh();
+	}
+
+	/** パネルからのBGMムード切り替え */
+	async setBgmChoice(choice: "auto" | BgmMoodId): Promise<void> {
+		this.settings.bgmMood = choice;
+		const mood = this.effectiveMood();
+		if (this.bgm.playing) this.bgm.switchMood(mood);
+		else if (this.settings.bgmEnabled && this.zen.active) this.bgm.start(mood);
+		await this.saveSettings();
+		this.panel.refresh();
+	}
+
+	/** パネルからの打鍵音の音色切り替え。サンプルを鳴らす */
+	async setKeySoundChoice(choice: KeySchemeId): Promise<void> {
+		this.settings.keySoundScheme = choice;
+		this.applyAudioSettings();
+		this.keySounds.play("key", "KeyA"); // 母音扱いで試聴
 		await this.saveSettings();
 		this.panel.refresh();
 	}

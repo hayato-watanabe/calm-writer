@@ -19,7 +19,7 @@ export const SCENES: Scene[] = [
 	{ id: "night", name: "月夜", particles: "stars", mood: "night" },
 	{ id: "aurora", name: "オーロラ", particles: "aurora", mood: "aurora" },
 	{ id: "forest", name: "森", particles: "motes", mood: "forest" },
-	{ id: "paper", name: "白い紙", particles: "none", mood: "calm" },
+	{ id: "paper", name: "セピア", particles: "none", mood: "calm" },
 ];
 
 export function getScene(id: string): Scene {

@@ -1220,7 +1220,7 @@ var SCENES = [
   { id: "night", name: "\u6708\u591C", particles: "stars", mood: "night" },
   { id: "aurora", name: "\u30AA\u30FC\u30ED\u30E9", particles: "aurora", mood: "aurora" },
   { id: "forest", name: "\u68EE", particles: "motes", mood: "forest" },
-  { id: "paper", name: "\u767D\u3044\u7D19", particles: "none", mood: "calm" }
+  { id: "paper", name: "\u30BB\u30D4\u30A2", particles: "none", mood: "calm" }
 ];
 function getScene(id) {
   var _a;
@@ -1244,7 +1244,9 @@ var ZenPanel = class {
         void this.plugin.setScene(scene.id, false);
       });
     }
-    const bgm = this.section(body, "BGM");
+    const bgm = this.section(body, "BGM", "bgm", (on) => {
+      void this.plugin.setBgmEnabled(on);
+    });
     this.option(bgm, "\u30B7\u30FC\u30F3\u9023\u52D5", "bgm", "auto", () => {
       void this.plugin.setBgmChoice("auto");
     });
@@ -1253,18 +1255,14 @@ var ZenPanel = class {
         void this.plugin.setBgmChoice(id);
       });
     }
-    this.option(bgm, "\u30AA\u30D5", "bgm", "off", () => {
-      void this.plugin.setBgmChoice("off");
+    const keys = this.section(body, "\u6253\u9375\u97F3", "key", (on) => {
+      void this.plugin.setKeySoundsEnabled(on);
     });
-    const keys = this.section(body, "\u6253\u9375\u97F3");
     for (const [id, name] of Object.entries(KEY_SCHEMES)) {
       this.option(keys, name, "key", id, () => {
         void this.plugin.setKeySoundChoice(id);
       });
     }
-    this.option(keys, "\u30AA\u30D5", "key", "off", () => {
-      void this.plugin.setKeySoundChoice("off");
-    });
     this.root = root;
     this.refresh();
   }
@@ -1273,14 +1271,29 @@ var ZenPanel = class {
     (_a = this.root) == null ? void 0 : _a.remove();
     this.root = null;
   }
-  /** 現在の設定に合わせて選択中ハイライトを付け直す */
+  /** 現在の設定に合わせてスイッチ・活性状態・選択中ハイライトを付け直す */
   refresh() {
     if (!this.root) return;
     const s = this.plugin.settings;
+    const enabled = {
+      bgm: s.bgmEnabled,
+      key: s.keySoundsEnabled
+    };
+    const switches = this.root.querySelectorAll(".immersive-writer-panel-switch");
+    switches.forEach((sw) => {
+      var _a, _b;
+      sw.classList.toggle("is-enabled", (_b = enabled[(_a = sw.dataset.switch) != null ? _a : ""]) != null ? _b : false);
+    });
+    const wraps = this.root.querySelectorAll(".immersive-writer-panel-options");
+    wraps.forEach((wrap) => {
+      var _a;
+      const group = (_a = wrap.dataset.group) != null ? _a : "";
+      wrap.classList.toggle("is-disabled", group in enabled && !enabled[group]);
+    });
     const active = {
       scene: s.sceneId,
-      bgm: s.bgmEnabled ? s.bgmMood : "off",
-      key: s.keySoundsEnabled ? s.keySoundScheme : "off"
+      bgm: s.bgmMood,
+      key: s.keySoundScheme
     };
     const options = this.root.querySelectorAll(".immersive-writer-panel-option");
     options.forEach((el) => {
@@ -1288,10 +1301,26 @@ var ZenPanel = class {
       el.classList.toggle("is-active", active[(_a = el.dataset.group) != null ? _a : ""] === el.dataset.value);
     });
   }
-  section(parent, title) {
+  /**
+   * セクションを作り、選択肢の入れ物を返す。
+   * toggleGroup を渡すと見出し右端にON/OFFスイッチが付く。
+   */
+  section(parent, title, toggleGroup, onToggle) {
     const sec = parent.createDiv({ cls: "immersive-writer-panel-section" });
-    sec.createDiv({ cls: "immersive-writer-panel-title", text: title });
-    return sec;
+    const head = sec.createDiv({ cls: "immersive-writer-panel-head" });
+    head.createDiv({ cls: "immersive-writer-panel-title", text: title });
+    if (toggleGroup && onToggle) {
+      const sw = head.createDiv({ cls: "checkbox-container mod-small immersive-writer-panel-switch" });
+      sw.dataset.switch = toggleGroup;
+      sw.createEl("input", { attr: { type: "checkbox", tabindex: "-1" } });
+      sw.addEventListener("mousedown", (e) => e.preventDefault());
+      sw.addEventListener("click", () => {
+        onToggle(!sw.classList.contains("is-enabled"));
+      });
+    }
+    const options = sec.createDiv({ cls: "immersive-writer-panel-options" });
+    if (toggleGroup) options.dataset.group = toggleGroup;
+    return options;
   }
   option(parent, label, group, value, onSelect) {
     const btn = parent.createEl("button", { cls: "immersive-writer-panel-option", text: label });
@@ -1617,31 +1646,35 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
   effectiveMood() {
     return this.settings.bgmMood === "auto" ? getScene(this.settings.sceneId).mood : this.settings.bgmMood;
   }
-  /** パネルからのBGM切り替え。オフ以外を選ぶと再生も始める */
-  async setBgmChoice(choice) {
-    if (choice === "off") {
-      this.settings.bgmEnabled = false;
-      this.bgm.stop();
-    } else {
-      this.settings.bgmEnabled = true;
-      this.settings.bgmMood = choice;
-      const mood = this.effectiveMood();
-      if (this.bgm.playing) this.bgm.switchMood(mood);
-      else this.bgm.start(mood);
-    }
+  /** BGMのON/OFF。オンにすると（没入モード中なら）すぐ再生が始まる */
+  async setBgmEnabled(on) {
+    this.settings.bgmEnabled = on;
+    if (!on) this.bgm.stop();
+    else if (this.zen.active && !this.bgm.playing) this.bgm.start(this.effectiveMood());
     await this.saveSettings();
     this.panel.refresh();
   }
-  /** パネルからの打鍵音切り替え。音色を選ぶとサンプルを鳴らす */
+  /** タイプ音のON/OFF。オンにするとサンプルを1音鳴らす */
+  async setKeySoundsEnabled(on) {
+    this.settings.keySoundsEnabled = on;
+    if (on) this.keySounds.play("key", "KeyA");
+    await this.saveSettings();
+    this.panel.refresh();
+  }
+  /** パネルからのBGMムード切り替え */
+  async setBgmChoice(choice) {
+    this.settings.bgmMood = choice;
+    const mood = this.effectiveMood();
+    if (this.bgm.playing) this.bgm.switchMood(mood);
+    else if (this.settings.bgmEnabled && this.zen.active) this.bgm.start(mood);
+    await this.saveSettings();
+    this.panel.refresh();
+  }
+  /** パネルからの打鍵音の音色切り替え。サンプルを鳴らす */
   async setKeySoundChoice(choice) {
-    if (choice === "off") {
-      this.settings.keySoundsEnabled = false;
-    } else {
-      this.settings.keySoundsEnabled = true;
-      this.settings.keySoundScheme = choice;
-      this.applyAudioSettings();
-      this.keySounds.play("key", "KeyA");
-    }
+    this.settings.keySoundScheme = choice;
+    this.applyAudioSettings();
+    this.keySounds.play("key", "KeyA");
     await this.saveSettings();
     this.panel.refresh();
   }
