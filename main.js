@@ -763,7 +763,7 @@ var ParticleLayer = class {
     this.nextShootAt = 0;
     this.shooting = null;
     /** オーロラのカーテン。うねる上端と揺れる明滅を持つ縦のグラデーション帯 */
-    this.auroraStrip = null;
+    this.auroraStrips = [];
     this.moonImg = null;
   }
   start(kind, sky) {
@@ -882,38 +882,52 @@ var ParticleLayer = class {
     }
     this.raf = window.requestAnimationFrame((n) => this.frame(n));
   }
-  ensureAuroraStrip() {
-    if (!this.auroraStrip) {
-      const cv = document.createElement("canvas");
+  /**
+   * カーテン1本ぶんの縦グラデーションを現在時刻の色で描き直す。
+   * 実際のオーロラの色構造（下端=酸素の緑557nm、上空=酸素の赤/窒素の紫）を保ったまま、
+   * 色相を数分周期でゆっくり漂わせる:
+   * - 本体: 緑(140°)を中心に 黄緑(115°)〜ティール(165°) を往復
+   * - 上部: 紫(272°)を中心に 青紫〜ピンク を往復し、濃さも満ち引きする
+   */
+  auroraStrip(band, t) {
+    let cv = this.auroraStrips[band];
+    if (!cv) {
+      cv = document.createElement("canvas");
       cv.width = 1;
       cv.height = 256;
-      const g = cv.getContext("2d");
-      const grad = g.createLinearGradient(0, 0, 0, 256);
-      grad.addColorStop(0, "rgba(150, 100, 220, 0)");
-      grad.addColorStop(0.35, "rgba(110, 140, 220, 0.10)");
-      grad.addColorStop(0.75, "rgba(70, 220, 170, 0.25)");
-      grad.addColorStop(0.97, "rgba(120, 255, 170, 0.5)");
-      grad.addColorStop(1, "rgba(140, 255, 190, 0.15)");
-      g.fillStyle = grad;
-      g.fillRect(0, 0, 1, 256);
-      this.auroraStrip = cv;
+      this.auroraStrips[band] = cv;
     }
-    return this.auroraStrip;
+    const g = cv.getContext("2d");
+    const bodyHue = 140 + 18 * Math.sin(t * 0.023 + band * 1.3) + 8 * Math.sin(t * 0.041 + 1.7 + band);
+    const topHue = 272 + 26 * Math.sin(t * 0.017 + 0.8 + band * 0.9);
+    const topA = 0.1 + 0.05 * Math.sin(t * 0.011 + band * 2.2);
+    g.clearRect(0, 0, 1, 256);
+    const grad = g.createLinearGradient(0, 0, 0, 256);
+    grad.addColorStop(0, `hsla(${topHue.toFixed(1)}, 70%, 65%, 0)`);
+    grad.addColorStop(0.3, `hsla(${topHue.toFixed(1)}, 65%, 62%, ${topA.toFixed(3)})`);
+    grad.addColorStop(0.62, `hsla(${(bodyHue + 20).toFixed(1)}, 70%, 58%, 0.15)`);
+    grad.addColorStop(0.9, `hsla(${bodyHue.toFixed(1)}, 85%, 60%, 0.42)`);
+    grad.addColorStop(0.97, `hsla(${(bodyHue - 6).toFixed(1)}, 90%, 70%, 0.5)`);
+    grad.addColorStop(1, `hsla(${bodyHue.toFixed(1)}, 85%, 70%, 0.12)`);
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 1, 256);
+    return cv;
   }
   drawAurora(c, w, h, t) {
-    const strip = this.ensureAuroraStrip();
     const prev = c.globalCompositeOperation;
     c.globalCompositeOperation = "lighter";
     const stripW = 10;
     for (let band = 0; band < 2; band++) {
+      const strip = this.auroraStrip(band, t);
       const yBase = h * (band === 0 ? 0.1 : 0.2);
-      const drift = t * (band === 0 ? 0.9 : -0.6);
+      const drift = t * (band === 0 ? 0.35 : -0.22);
+      const activity = 0.75 + 0.25 * Math.sin(t * 0.013 + band * 2.6);
       for (let x = -stripW; x < w + stripW; x += stripW) {
         const u = x / w;
-        const yTop = yBase + Math.sin(u * 4.2 + drift * 0.25 + band * 2.1) * h * 0.05 + Math.sin(u * 9.5 - drift * 0.4) * h * 0.022;
-        const len = h * (0.14 + 0.1 * (0.5 + 0.5 * Math.sin(u * 6.3 + drift * 0.33 + band)));
-        const shimmer = 0.5 + 0.5 * Math.sin(u * 12 + drift * 0.8 + band * 3);
-        c.globalAlpha = 0.32 * (0.4 + 0.6 * shimmer);
+        const yTop = yBase + Math.sin(u * 3.4 + drift * 0.25 + band * 2.1) * h * 0.055 + Math.sin(u * 7.5 - drift * 0.4) * h * 0.024;
+        const len = h * (0.15 + 0.11 * (0.5 + 0.5 * Math.sin(u * 5.6 + drift * 0.33 + band)));
+        const shimmer = 0.5 + 0.5 * Math.sin(u * 9 + t * 0.22 + band * 3);
+        c.globalAlpha = 0.32 * activity * (0.45 + 0.55 * shimmer);
         c.drawImage(strip, x, yTop, stripW, len);
       }
     }
