@@ -94,7 +94,8 @@ export class ParticleLayer {
 		const w = window.innerWidth;
 		const h = window.innerHeight;
 		// 種類ごとに密度を変える（星は多め、光の粒はまばら）
-		const density = this.kind === "stars" ? 9000 : this.kind === "snow" ? 16000 : 30000;
+		const density =
+			this.kind === "stars" || this.kind === "aurora" ? 9000 : this.kind === "snow" ? 16000 : 30000;
 		const n = Math.max(30, Math.min(200, Math.round((w * h) / density)));
 		this.items = [];
 		for (let i = 0; i < n; i++) {
@@ -124,6 +125,7 @@ export class ParticleLayer {
 		const starDim = sky ? sky.starAlpha : 1;
 
 		if (this.kind === "stars" && sky) this.drawMoon(c, w, h, sky);
+		if (this.kind === "aurora") this.drawAurora(c, w, h, t);
 		const wind = this.kind === "snow" ? this.windStrength(now, t) : 0;
 
 		for (const p of this.items) {
@@ -140,7 +142,7 @@ export class ParticleLayer {
 				if (p.x > w + 4) p.x = -4;
 				else if (p.x < -4) p.x = w + 4;
 				c.fillStyle = "#ffffff";
-			} else if (this.kind === "stars") {
+			} else if (this.kind === "stars" || this.kind === "aurora") {
 				alpha = p.alpha * (0.55 + 0.45 * Math.sin(t * (0.3 + p.phase * 0.15) + p.phase)) * starDim;
 				if (alpha < 0.01) continue;
 				c.fillStyle = "#dfe6ff";
@@ -170,9 +172,58 @@ export class ParticleLayer {
 		}
 		c.globalAlpha = 1;
 
-		if (this.kind === "stars") this.updateShootingStar(c, w, h, dt, now, starDim);
+		if (this.kind === "stars" || this.kind === "aurora") {
+			this.updateShootingStar(c, w, h, dt, now, starDim);
+		}
 
 		this.raf = window.requestAnimationFrame((n) => this.frame(n));
+	}
+
+	/** オーロラのカーテン。うねる上端と揺れる明滅を持つ縦のグラデーション帯 */
+	private auroraStrip: HTMLCanvasElement | null = null;
+
+	private ensureAuroraStrip(): HTMLCanvasElement {
+		if (!this.auroraStrip) {
+			const cv = document.createElement("canvas");
+			cv.width = 1;
+			cv.height = 256;
+			const g = cv.getContext("2d") as CanvasRenderingContext2D;
+			const grad = g.createLinearGradient(0, 0, 0, 256);
+			// 上端は淡い紫、下端ほど明るい緑（実際のオーロラは下端が最も明るい）
+			grad.addColorStop(0, "rgba(150, 100, 220, 0)");
+			grad.addColorStop(0.35, "rgba(110, 140, 220, 0.10)");
+			grad.addColorStop(0.75, "rgba(70, 220, 170, 0.25)");
+			grad.addColorStop(0.97, "rgba(120, 255, 170, 0.5)");
+			grad.addColorStop(1, "rgba(140, 255, 190, 0.15)");
+			g.fillStyle = grad;
+			g.fillRect(0, 0, 1, 256);
+			this.auroraStrip = cv;
+		}
+		return this.auroraStrip;
+	}
+
+	private drawAurora(c: CanvasRenderingContext2D, w: number, h: number, t: number): void {
+		const strip = this.ensureAuroraStrip();
+		const prev = c.globalCompositeOperation;
+		c.globalCompositeOperation = "lighter"; // 光として加算合成する
+		const stripW = 10;
+		for (let band = 0; band < 2; band++) {
+			const yBase = h * (band === 0 ? 0.1 : 0.2);
+			const drift = t * (band === 0 ? 0.9 : -0.6);
+			for (let x = -stripW; x < w + stripW; x += stripW) {
+				const u = x / w;
+				const yTop =
+					yBase +
+					Math.sin(u * 4.2 + drift * 0.25 + band * 2.1) * h * 0.05 +
+					Math.sin(u * 9.5 - drift * 0.4) * h * 0.022;
+				const len = h * (0.14 + 0.1 * (0.5 + 0.5 * Math.sin(u * 6.3 + drift * 0.33 + band)));
+				const shimmer = 0.5 + 0.5 * Math.sin(u * 12 + drift * 0.8 + band * 3);
+				c.globalAlpha = 0.32 * (0.4 + 0.6 * shimmer);
+				c.drawImage(strip, x, yTop, stripW, len);
+			}
+		}
+		c.globalAlpha = 1;
+		c.globalCompositeOperation = prev;
 	}
 
 	/** 雪の横風。ふだんは微風、ときどき数秒間の突風が吹く */

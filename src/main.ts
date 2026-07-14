@@ -1,7 +1,7 @@
 import { Notice, Plugin } from "obsidian";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { AudioEngine } from "./audio/engine";
-import { KeyKind, KeySchemeId, KeySoundPlayer } from "./audio/keySounds";
+import { KEY_SCHEMES, KeyKind, KeySchemeId, KeySoundPlayer } from "./audio/keySounds";
 import { BgmMoodId, BgmPlayer } from "./audio/bgm";
 import { ParticleLayer } from "./ambience/particles";
 import { SkyCycle } from "./ambience/sky";
@@ -249,6 +249,10 @@ export default class ImmersiveWriterPlugin extends Plugin {
 
 	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		// 廃止された音色（旧: ソフトなど）が保存されていたら既定に戻す
+		if (!(this.settings.keySoundScheme in KEY_SCHEMES)) {
+			this.settings.keySoundScheme = "drop";
+		}
 	}
 
 	async saveSettings(): Promise<void> {

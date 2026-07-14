@@ -115,7 +115,7 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("夜空に時間の流れ")
+			.setName("月夜に時間の流れ")
 			.setDesc("夕暮れから夜明けまでを約75分かけて描きます（実時間1分 = 作中10分）。月と流れ星も現れます。")
 			.addToggle((tg) =>
 				tg.setValue(s.nightCycle).onChange(async (v) => {
@@ -140,10 +140,12 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("タイプ音を鳴らす")
+			.setDesc("オフにすると以下の項目は無効になります。")
 			.addToggle((tg) =>
 				tg.setValue(s.keySoundsEnabled).onChange(async (v) => {
 					s.keySoundsEnabled = v;
 					await this.plugin.saveSettings();
+					this.display(); // 依存項目の活性状態を更新
 				})
 			);
 
@@ -155,7 +157,8 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 					s.keySoundsEverywhere = v;
 					await this.plugin.saveSettings();
 				})
-			);
+			)
+			.setDisabled(!s.keySoundsEnabled);
 
 		new Setting(containerEl)
 			.setName("音色")
@@ -168,7 +171,8 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 					this.plugin.keySounds.play("key", "KeyA"); // 母音扱いで試聴
 					await this.plugin.saveSettings();
 				});
-			});
+			})
+			.setDisabled(!s.keySoundsEnabled);
 
 		new Setting(containerEl)
 			.setName("タイプ音の音量")
@@ -183,18 +187,25 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 						this.plugin.keySounds.play("key", "KeyA"); // 母音扱いで試聴
 						await this.plugin.saveSettings();
 					})
-			);
+			)
+			.setDisabled(!s.keySoundsEnabled);
 
 		// ---- BGM ----
 		new Setting(containerEl).setName("BGM").setHeading();
 
 		new Setting(containerEl)
-			.setName("没入モードでBGMを流す")
-			.setDesc("シーンに合わせたアンビエントを自動再生します。コマンドで単独再生もできます。")
+			.setName("BGMを流す")
+			.setDesc("没入モード中に自動再生します。オフにすると以下の項目は無効になり、再生中のBGMも止まります。")
 			.addToggle((tg) =>
 				tg.setValue(s.bgmEnabled).onChange(async (v) => {
 					s.bgmEnabled = v;
+					if (!v) {
+						this.plugin.bgm.stop();
+					} else if (this.plugin.zen.active) {
+						this.plugin.bgm.start(this.plugin.effectiveMood());
+					}
 					await this.plugin.saveSettings();
+					this.display(); // 依存項目の活性状態を更新
 				})
 			);
 
@@ -211,7 +222,8 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 					}
 					await this.plugin.saveSettings();
 				});
-			});
+			})
+			.setDisabled(!s.bgmEnabled);
 
 		new Setting(containerEl)
 			.setName("BGMの音量")
@@ -225,7 +237,8 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 						this.plugin.applyAudioSettings();
 						await this.plugin.saveSettings();
 					})
-			);
+			)
+			.setDisabled(!s.bgmEnabled);
 
 		// ---- 文字と余白 ----
 		new Setting(containerEl).setName("文字と余白（没入モード中）").setHeading();

@@ -3,14 +3,13 @@ import { AudioEngine } from "./engine";
 /** キーの種類。種類ごとに音色を変える。enter=IME確定など、return=実際の改行 */
 export type KeyKind = "key" | "space" | "enter" | "return" | "delete";
 
-export type KeySchemeId = "drop" | "drop2" | "typewriter" | "marimba" | "soft";
+export type KeySchemeId = "drop" | "drop2" | "typewriter" | "marimba";
 
 export const KEY_SCHEMES: Record<KeySchemeId, string> = {
 	drop: "水滴",
 	drop2: "水滴2（母音）",
 	typewriter: "タイプライター",
 	marimba: "木琴",
-	soft: "ソフト",
 };
 
 /**
@@ -102,9 +101,6 @@ export class KeySoundPlayer {
 				break;
 			case "marimba":
 				this.playMarimba(kind, level, code);
-				break;
-			case "soft":
-				this.playSoft(kind, level);
 				break;
 		}
 	}
@@ -273,22 +269,6 @@ export class KeySoundPlayer {
 		this.tone(t, freq, dur, peak * level);
 		this.tone(t, freq * 4, dur * 0.15, 0.06 * level); // 木を叩いた瞬間の倍音
 		this.noiseHit(t, 4000, 0.008, 0.03 * level);
-	}
-
-	/** ソフト: こもったノイズだけの静かなタップ。夜中の執筆向け */
-	private playSoft(kind: KeyKind, level: number): void {
-		const t = this.engine.context.currentTime;
-		if (kind === "enter" || kind === "return") {
-			this.noiseHit(t, 500, 0.05, 0.4 * level, "lowpass");
-			this.thump(t, 130, 80, 0.05, 0.15 * level);
-		} else if (kind === "space") {
-			this.noiseHit(t, 550, 0.04, 0.38 * level, "lowpass");
-		} else if (kind === "delete") {
-			this.noiseHit(t, 650, 0.025, 0.3 * level, "lowpass");
-		} else {
-			this.noiseHit(t, rand(650, 800), 0.03, 0.35 * level, "lowpass");
-			this.thump(t, 200, 150, 0.025, 0.08 * level);
-		}
 	}
 
 	// ---- 部品となるシンセ ----

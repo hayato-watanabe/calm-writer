@@ -1,6 +1,6 @@
 import { BgmMoodId } from "../audio/bgm";
 
-export type ParticleKind = "none" | "snow" | "stars" | "motes";
+export type ParticleKind = "none" | "snow" | "stars" | "motes" | "aurora";
 
 /**
  * シーン = 背景(CSS) × パーティクル × BGMムード の組。
@@ -16,7 +16,8 @@ export interface Scene {
 
 export const SCENES: Scene[] = [
 	{ id: "snowfield", name: "雪原", particles: "snow", mood: "aurora" },
-	{ id: "night", name: "夜空", particles: "stars", mood: "night" },
+	{ id: "night", name: "月夜", particles: "stars", mood: "night" },
+	{ id: "aurora", name: "オーロラ", particles: "aurora", mood: "aurora" },
 	{ id: "forest", name: "森", particles: "motes", mood: "forest" },
 	{ id: "paper", name: "白い紙", particles: "none", mood: "calm" },
 ];

@@ -103,8 +103,7 @@ var KEY_SCHEMES = {
   drop: "\u6C34\u6EF4",
   drop2: "\u6C34\u6EF42\uFF08\u6BCD\u97F3\uFF09",
   typewriter: "\u30BF\u30A4\u30D7\u30E9\u30A4\u30BF\u30FC",
-  marimba: "\u6728\u7434",
-  soft: "\u30BD\u30D5\u30C8"
+  marimba: "\u6728\u7434"
 };
 var VOWEL_DROP_SIZES = {
   KeyA: 0.8,
@@ -216,9 +215,6 @@ var KeySoundPlayer = class {
         break;
       case "marimba":
         this.playMarimba(kind, level, code);
-        break;
-      case "soft":
-        this.playSoft(kind, level);
         break;
     }
   }
@@ -364,21 +360,6 @@ var KeySoundPlayer = class {
     this.tone(t, freq, dur, peak * level);
     this.tone(t, freq * 4, dur * 0.15, 0.06 * level);
     this.noiseHit(t, 4e3, 8e-3, 0.03 * level);
-  }
-  /** ソフト: こもったノイズだけの静かなタップ。夜中の執筆向け */
-  playSoft(kind, level) {
-    const t = this.engine.context.currentTime;
-    if (kind === "enter" || kind === "return") {
-      this.noiseHit(t, 500, 0.05, 0.4 * level, "lowpass");
-      this.thump(t, 130, 80, 0.05, 0.15 * level);
-    } else if (kind === "space") {
-      this.noiseHit(t, 550, 0.04, 0.38 * level, "lowpass");
-    } else if (kind === "delete") {
-      this.noiseHit(t, 650, 0.025, 0.3 * level, "lowpass");
-    } else {
-      this.noiseHit(t, rand(650, 800), 0.03, 0.35 * level, "lowpass");
-      this.thump(t, 200, 150, 0.025, 0.08 * level);
-    }
   }
   // ---- 部品となるシンセ ----
   /** 一定ピッチのサイン波（指数減衰） */
@@ -787,6 +768,8 @@ var ParticleLayer = class {
     // 流れ星
     this.nextShootAt = 0;
     this.shooting = null;
+    /** オーロラのカーテン。うねる上端と揺れる明滅を持つ縦のグラデーション帯 */
+    this.auroraStrip = null;
     this.moonImg = null;
   }
   start(kind, sky) {
@@ -830,7 +813,7 @@ var ParticleLayer = class {
   seed() {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const density = this.kind === "stars" ? 9e3 : this.kind === "snow" ? 16e3 : 3e4;
+    const density = this.kind === "stars" || this.kind === "aurora" ? 9e3 : this.kind === "snow" ? 16e3 : 3e4;
     const n = Math.max(30, Math.min(200, Math.round(w * h / density)));
     this.items = [];
     for (let i = 0; i < n; i++) {
@@ -857,6 +840,7 @@ var ParticleLayer = class {
     const sky = this.skyProvider ? this.skyProvider() : null;
     const starDim = sky ? sky.starAlpha : 1;
     if (this.kind === "stars" && sky) this.drawMoon(c, w, h, sky);
+    if (this.kind === "aurora") this.drawAurora(c, w, h, t);
     const wind = this.kind === "snow" ? this.windStrength(now, t) : 0;
     for (const p of this.items) {
       let alpha = p.alpha;
@@ -871,7 +855,7 @@ var ParticleLayer = class {
         if (p.x > w + 4) p.x = -4;
         else if (p.x < -4) p.x = w + 4;
         c.fillStyle = "#ffffff";
-      } else if (this.kind === "stars") {
+      } else if (this.kind === "stars" || this.kind === "aurora") {
         alpha = p.alpha * (0.55 + 0.45 * Math.sin(t * (0.3 + p.phase * 0.15) + p.phase)) * starDim;
         if (alpha < 0.01) continue;
         c.fillStyle = "#dfe6ff";
@@ -899,8 +883,48 @@ var ParticleLayer = class {
       c.fill();
     }
     c.globalAlpha = 1;
-    if (this.kind === "stars") this.updateShootingStar(c, w, h, dt, now, starDim);
+    if (this.kind === "stars" || this.kind === "aurora") {
+      this.updateShootingStar(c, w, h, dt, now, starDim);
+    }
     this.raf = window.requestAnimationFrame((n) => this.frame(n));
+  }
+  ensureAuroraStrip() {
+    if (!this.auroraStrip) {
+      const cv = document.createElement("canvas");
+      cv.width = 1;
+      cv.height = 256;
+      const g = cv.getContext("2d");
+      const grad = g.createLinearGradient(0, 0, 0, 256);
+      grad.addColorStop(0, "rgba(150, 100, 220, 0)");
+      grad.addColorStop(0.35, "rgba(110, 140, 220, 0.10)");
+      grad.addColorStop(0.75, "rgba(70, 220, 170, 0.25)");
+      grad.addColorStop(0.97, "rgba(120, 255, 170, 0.5)");
+      grad.addColorStop(1, "rgba(140, 255, 190, 0.15)");
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 1, 256);
+      this.auroraStrip = cv;
+    }
+    return this.auroraStrip;
+  }
+  drawAurora(c, w, h, t) {
+    const strip = this.ensureAuroraStrip();
+    const prev = c.globalCompositeOperation;
+    c.globalCompositeOperation = "lighter";
+    const stripW = 10;
+    for (let band = 0; band < 2; band++) {
+      const yBase = h * (band === 0 ? 0.1 : 0.2);
+      const drift = t * (band === 0 ? 0.9 : -0.6);
+      for (let x = -stripW; x < w + stripW; x += stripW) {
+        const u = x / w;
+        const yTop = yBase + Math.sin(u * 4.2 + drift * 0.25 + band * 2.1) * h * 0.05 + Math.sin(u * 9.5 - drift * 0.4) * h * 0.022;
+        const len = h * (0.14 + 0.1 * (0.5 + 0.5 * Math.sin(u * 6.3 + drift * 0.33 + band)));
+        const shimmer = 0.5 + 0.5 * Math.sin(u * 12 + drift * 0.8 + band * 3);
+        c.globalAlpha = 0.32 * (0.4 + 0.6 * shimmer);
+        c.drawImage(strip, x, yTop, stripW, len);
+      }
+    }
+    c.globalAlpha = 1;
+    c.globalCompositeOperation = prev;
   }
   /** 雪の横風。ふだんは微風、ときどき数秒間の突風が吹く */
   windStrength(now, t) {
@@ -1193,7 +1217,8 @@ var ZenController = class {
 // src/ambience/scenes.ts
 var SCENES = [
   { id: "snowfield", name: "\u96EA\u539F", particles: "snow", mood: "aurora" },
-  { id: "night", name: "\u591C\u7A7A", particles: "stars", mood: "night" },
+  { id: "night", name: "\u6708\u591C", particles: "stars", mood: "night" },
+  { id: "aurora", name: "\u30AA\u30FC\u30ED\u30E9", particles: "aurora", mood: "aurora" },
   { id: "forest", name: "\u68EE", particles: "motes", mood: "forest" },
   { id: "paper", name: "\u767D\u3044\u7D19", particles: "none", mood: "calm" }
 ];
@@ -1345,7 +1370,7 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("\u591C\u7A7A\u306B\u6642\u9593\u306E\u6D41\u308C").setDesc("\u5915\u66AE\u308C\u304B\u3089\u591C\u660E\u3051\u307E\u3067\u3092\u7D0475\u5206\u304B\u3051\u3066\u63CF\u304D\u307E\u3059\uFF08\u5B9F\u6642\u95931\u5206 = \u4F5C\u4E2D10\u5206\uFF09\u3002\u6708\u3068\u6D41\u308C\u661F\u3082\u73FE\u308C\u307E\u3059\u3002").addToggle(
+    new import_obsidian.Setting(containerEl).setName("\u6708\u591C\u306B\u6642\u9593\u306E\u6D41\u308C").setDesc("\u5915\u66AE\u308C\u304B\u3089\u591C\u660E\u3051\u307E\u3067\u3092\u7D0475\u5206\u304B\u3051\u3066\u63CF\u304D\u307E\u3059\uFF08\u5B9F\u6642\u95931\u5206 = \u4F5C\u4E2D10\u5206\uFF09\u3002\u6708\u3068\u6D41\u308C\u661F\u3082\u73FE\u308C\u307E\u3059\u3002").addToggle(
       (tg) => tg.setValue(s.nightCycle).onChange(async (v) => {
         s.nightCycle = v;
         this.plugin.refreshAmbience();
@@ -1359,10 +1384,11 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
       })
     );
     new import_obsidian.Setting(containerEl).setName("\u30BF\u30A4\u30D7\u97F3").setHeading();
-    new import_obsidian.Setting(containerEl).setName("\u30BF\u30A4\u30D7\u97F3\u3092\u9CF4\u3089\u3059").addToggle(
+    new import_obsidian.Setting(containerEl).setName("\u30BF\u30A4\u30D7\u97F3\u3092\u9CF4\u3089\u3059").setDesc("\u30AA\u30D5\u306B\u3059\u308B\u3068\u4EE5\u4E0B\u306E\u9805\u76EE\u306F\u7121\u52B9\u306B\u306A\u308A\u307E\u3059\u3002").addToggle(
       (tg) => tg.setValue(s.keySoundsEnabled).onChange(async (v) => {
         s.keySoundsEnabled = v;
         await this.plugin.saveSettings();
+        this.display();
       })
     );
     new import_obsidian.Setting(containerEl).setName("\u6CA1\u5165\u30E2\u30FC\u30C9\u4EE5\u5916\u3067\u3082\u9CF4\u3089\u3059").setDesc("\u30AA\u30D5\u306B\u3059\u308B\u3068\u6CA1\u5165\u30E2\u30FC\u30C9\u4E2D\u3060\u3051\u30BF\u30A4\u30D7\u97F3\u304C\u9CF4\u308A\u307E\u3059\u3002").addToggle(
@@ -1370,7 +1396,7 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         s.keySoundsEverywhere = v;
         await this.plugin.saveSettings();
       })
-    );
+    ).setDisabled(!s.keySoundsEnabled);
     new import_obsidian.Setting(containerEl).setName("\u97F3\u8272").setDesc("\u5909\u66F4\u3059\u308B\u3068\u30B5\u30F3\u30D7\u30EB\u304C\u9CF4\u308A\u307E\u3059\u3002").addDropdown((dd) => {
       for (const [id, name] of Object.entries(KEY_SCHEMES)) dd.addOption(id, name);
       dd.setValue(s.keySoundScheme).onChange(async (v) => {
@@ -1379,7 +1405,7 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.keySounds.play("key", "KeyA");
         await this.plugin.saveSettings();
       });
-    });
+    }).setDisabled(!s.keySoundsEnabled);
     new import_obsidian.Setting(containerEl).setName("\u30BF\u30A4\u30D7\u97F3\u306E\u97F3\u91CF").addSlider(
       (sl) => sl.setLimits(0, 100, 1).setValue(Math.round(s.keySoundVolume * 100)).setDynamicTooltip().onChange(async (v) => {
         s.keySoundVolume = v / 100;
@@ -1387,12 +1413,18 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         this.plugin.keySounds.play("key", "KeyA");
         await this.plugin.saveSettings();
       })
-    );
+    ).setDisabled(!s.keySoundsEnabled);
     new import_obsidian.Setting(containerEl).setName("BGM").setHeading();
-    new import_obsidian.Setting(containerEl).setName("\u6CA1\u5165\u30E2\u30FC\u30C9\u3067BGM\u3092\u6D41\u3059").setDesc("\u30B7\u30FC\u30F3\u306B\u5408\u308F\u305B\u305F\u30A2\u30F3\u30D3\u30A8\u30F3\u30C8\u3092\u81EA\u52D5\u518D\u751F\u3057\u307E\u3059\u3002\u30B3\u30DE\u30F3\u30C9\u3067\u5358\u72EC\u518D\u751F\u3082\u3067\u304D\u307E\u3059\u3002").addToggle(
+    new import_obsidian.Setting(containerEl).setName("BGM\u3092\u6D41\u3059").setDesc("\u6CA1\u5165\u30E2\u30FC\u30C9\u4E2D\u306B\u81EA\u52D5\u518D\u751F\u3057\u307E\u3059\u3002\u30AA\u30D5\u306B\u3059\u308B\u3068\u4EE5\u4E0B\u306E\u9805\u76EE\u306F\u7121\u52B9\u306B\u306A\u308A\u3001\u518D\u751F\u4E2D\u306EBGM\u3082\u6B62\u307E\u308A\u307E\u3059\u3002").addToggle(
       (tg) => tg.setValue(s.bgmEnabled).onChange(async (v) => {
         s.bgmEnabled = v;
+        if (!v) {
+          this.plugin.bgm.stop();
+        } else if (this.plugin.zen.active) {
+          this.plugin.bgm.start(this.plugin.effectiveMood());
+        }
         await this.plugin.saveSettings();
+        this.display();
       })
     );
     new import_obsidian.Setting(containerEl).setName("BGM\u306E\u30E0\u30FC\u30C9").setDesc("\u300C\u30B7\u30FC\u30F3\u9023\u52D5\u300D\u306F\u30B7\u30FC\u30F3\u306B\u5408\u308F\u305B\u3066\u81EA\u52D5\u3067\u9078\u3073\u307E\u3059\u3002").addDropdown((dd) => {
@@ -1405,14 +1437,14 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         }
         await this.plugin.saveSettings();
       });
-    });
+    }).setDisabled(!s.bgmEnabled);
     new import_obsidian.Setting(containerEl).setName("BGM\u306E\u97F3\u91CF").addSlider(
       (sl) => sl.setLimits(0, 100, 1).setValue(Math.round(s.bgmVolume * 100)).setDynamicTooltip().onChange(async (v) => {
         s.bgmVolume = v / 100;
         this.plugin.applyAudioSettings();
         await this.plugin.saveSettings();
       })
-    );
+    ).setDisabled(!s.bgmEnabled);
     new import_obsidian.Setting(containerEl).setName("\u6587\u5B57\u3068\u4F59\u767D\uFF08\u6CA1\u5165\u30E2\u30FC\u30C9\u4E2D\uFF09").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u30D5\u30A9\u30F3\u30C8").addDropdown((dd) => {
       for (const [value, name] of Object.entries(FONT_PRESETS)) dd.addOption(value, name);
@@ -1662,6 +1694,9 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
   // ---- 設定 ----
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    if (!(this.settings.keySoundScheme in KEY_SCHEMES)) {
+      this.settings.keySoundScheme = "drop";
+    }
   }
   async saveSettings() {
     await this.saveData(this.settings);
