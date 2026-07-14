@@ -145,17 +145,17 @@ export class SkyCycle {
 			`rgba(${Math.round(vig[0])}, ${Math.round(vig[1])}, ${Math.round(vig[2])}, ${vig[3].toFixed(2)})`
 		);
 
-		// 月の運行: 夕暮れからほのかに空にあり、暗くなるほど輝きを増しながら
-		// 画面上端の浅い弧を左から右へ渡り、夜明け前に画面の右端へ沈んで退場する
+		// 月の運行: 頂点が画面の上外にある高い放物線を描く。
+		// 夕暮れに左上(12%, 15%)から昇り、x=40%あたりで上端から画面外へ出て、
+		// 天頂を画面外で通過したのち x=60%あたりで再び現れ、右端へ下りて沈む
 		let moonX = 0;
 		let moonY = 0;
 		let moonAlpha = 0;
 		if (h >= MOON_START && h <= MOON_END) {
 			const q = (h - MOON_START) / (MOON_END - MOON_START);
 			moonX = 0.12 + 0.94 * q; // 左上(12%)から右端の外(106%)まで
-			// 終盤(q>0.82)は弧を終えて、下がりながら画面外へすべり出る
-			const setting = Math.max(0, (q - 0.82) / 0.18);
-			moonY = 0.13 - 0.06 * Math.sin(Math.PI * Math.min(q / 0.82, 1)) + 0.09 * setting * setting;
+			// この放物線は x=0.40 / 0.60 でちょうど上端(y=-0.05)と交差する
+			moonY = 1.49 * (moonX - 0.5) * (moonX - 0.5) - 0.065;
 			const setFade = Math.min(1, (1 - q) / 0.08); // 退場中はゆっくり減光
 			moonAlpha = (0.22 + 0.7 * star) * setFade;
 		}
