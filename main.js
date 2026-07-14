@@ -179,6 +179,9 @@ var KeySoundPlayer = class {
     // 0..1
     this.scheme = "drop";
     this.lastPlayed = 0;
+    /** 水滴の「ため」。速い打鍵では数打ぶんたまってから落ちる */
+    this.dropFill = 0;
+    this.lastDropKeyAt = 0;
   }
   /** code = KeyboardEvent.code（木琴が列→音程の割り当てに使う） */
   play(kind, code) {
@@ -204,26 +207,50 @@ var KeySoundPlayer = class {
     }
   }
   /**
-   * 水滴: 1打ごとに「滴の大きさ」を決め、そこから
-   * 音程・長さ・跳ね上がり方・水面の共鳴を連動して変える。
-   * 実際の水滴のように、同じ音は二度と鳴らない。
+   * 水滴。打鍵の速さで振る舞いが変わる:
+   * - ゆっくり（前の打鍵から500ms超）: 1打ごとに1滴落ちる
+   * - 速い: 打鍵ごとに雫が「たまり」、3〜4打（ランダム）で満ちて落ちる。
+   *   ため中は極小の「雫の気配」が鳴り、満ちるほど気配の音程が上がる
+   * - Enter/改行: たまった分も含めて大粒がひとつ落ちる（行の句読点）
+   * すべての音は打鍵の瞬間にだけ鳴るため、リズムはタイピングと常に同期する。
    */
   playDrop(kind, level) {
-    const t = this.engine.context.currentTime;
-    let size = Math.random();
-    let peak = 0.22;
-    let freqScale = 1;
-    if (kind === "space") {
-      size = rand(0.55, 0.85);
-      freqScale = 0.62;
-    } else if (kind === "enter" || kind === "return") {
-      size = rand(0.8, 1);
-      freqScale = 0.55;
-      peak = 0.26;
-    } else if (kind === "delete") {
-      size = rand(0, 0.3);
-      peak = 0.16;
+    const now = performance.now();
+    const gap = now - this.lastDropKeyAt;
+    this.lastDropKeyAt = now;
+    if (kind === "enter" || kind === "return") {
+      this.dropFill = 0;
+      this.fallDrop(rand(0.8, 1), 0.55, 0.26, level);
+      return;
     }
+    if (gap > 500) {
+      const pending = this.dropFill > 0.4;
+      this.dropFill = 0;
+      let size = Math.random();
+      let freqScale = 1;
+      let peak = 0.22;
+      if (kind === "space") {
+        size = rand(0.55, 0.85);
+        freqScale = 0.62;
+      } else if (kind === "delete") {
+        size = rand(0, 0.3);
+        peak = 0.16;
+      }
+      if (pending) size = Math.max(size, rand(0.5, 0.8));
+      this.fallDrop(size, freqScale, peak, level);
+      return;
+    }
+    this.dropFill += rand(0.26, 0.36);
+    if (this.dropFill >= 1) {
+      this.dropFill -= 1;
+      this.fallDrop(rand(0.55, 0.9), kind === "space" ? 0.62 : 1, 0.24, level);
+    } else {
+      this.dropTick(kind, level);
+    }
+  }
+  /** 1滴の落下音。size (0=小粒, 1=大粒) から音程・長さ・共鳴を連動させる */
+  fallDrop(size, freqScale, peak, level) {
+    const t = this.engine.context.currentTime;
     const freq = lerp(1050, 480, size) * freqScale * rand(0.92, 1.08);
     const dur = lerp(0.09, 0.3, size) * rand(0.85, 1.15);
     const bend = rand(1.12, 1.75);
@@ -233,11 +260,19 @@ var KeySoundPlayer = class {
     if (size > 0.45) {
       this.thump(t + 5e-3, freq * 0.28, freq * 0.2, dur * 0.8, 0.1 * size * level);
     }
-    if (kind === "key" && Math.random() < 0.28) {
+    if (Math.random() < 0.28) {
       const f2 = freq * rand(1.15, 1.45);
       const d2 = dur * rand(0.5, 0.75);
       this.chirp(t + rand(0.045, 0.09), f2, f2 * rand(1.2, 1.5), d2 * 0.6, d2, peak * 0.4 * level);
     }
+  }
+  /** ため中の極小の「雫の気配」。満ちるほどわずかに音程が上がる */
+  dropTick(kind, level) {
+    const t = this.engine.context.currentTime;
+    let f = lerp(1600, 2400, Math.min(this.dropFill, 1)) * rand(0.95, 1.05);
+    if (kind === "delete") f *= 0.7;
+    this.chirp(t, f, f * rand(1.05, 1.15), 0.02, 0.045, 0.06 * level);
+    this.noiseHit(t, rand(3800, 5200), rand(6e-3, 0.012), 0.03 * level);
   }
   /** タイプライター: ノイズのクリック + 低域のタップ音。確定Enterでベル、改行でキャリッジリターン */
   playTypewriter(kind, level) {
