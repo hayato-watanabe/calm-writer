@@ -519,12 +519,6 @@ var MOODS = {
     level: 0.7
   }
 };
-var BGM_MOOD_NAMES = {
-  aurora: "\u30AA\u30FC\u30ED\u30E9",
-  night: "\u591C",
-  forest: "\u68EE",
-  calm: "\u51EA"
-};
 var BgmPlayer = class {
   constructor(engine) {
     this.engine = engine;
@@ -1244,17 +1238,9 @@ var ZenPanel = class {
         void this.plugin.setScene(scene.id, false);
       });
     }
-    const bgm = this.section(body, "BGM", "bgm", (on) => {
+    this.section(body, "BGM", "bgm", (on) => {
       void this.plugin.setBgmEnabled(on);
     });
-    this.option(bgm, "\u30B7\u30FC\u30F3\u9023\u52D5", "bgm", "auto", () => {
-      void this.plugin.setBgmChoice("auto");
-    });
-    for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) {
-      this.option(bgm, name, "bgm", id, () => {
-        void this.plugin.setBgmChoice(id);
-      });
-    }
     const keys = this.section(body, "\u6253\u9375\u97F3", "key", (on) => {
       void this.plugin.setKeySoundsEnabled(on);
     });
@@ -1292,7 +1278,6 @@ var ZenPanel = class {
     });
     const active = {
       scene: s.sceneId,
-      bgm: s.bgmMood,
       key: s.keySoundScheme
     };
     const options = this.root.querySelectorAll(".immersive-writer-panel-option");
@@ -1348,8 +1333,9 @@ var DEFAULT_SETTINGS = {
   keySoundScheme: "drop",
   keySoundVolume: 0.5,
   bgmEnabled: true,
-  bgmMood: "auto",
   bgmVolume: 0.4,
+  showLineCount: true,
+  showCharCount: true,
   fontPreset: "",
   customFont: "",
   fontSize: 20,
@@ -1412,6 +1398,20 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
+    new import_obsidian.Setting(containerEl).setName("\u884C\u6570\u3092\u8868\u793A").setDesc("\u753B\u9762\u53F3\u4E0B\u306B\u300C\u884C\u6570: \u73FE\u5728\u884C / \u5168\u4F53\u884C\u300D\u3092\u8584\u304F\u8868\u793A\u3057\u307E\u3059\u3002").addToggle(
+      (tg) => tg.setValue(s.showLineCount).onChange(async (v) => {
+        s.showLineCount = v;
+        this.plugin.renderStatus();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("\u6587\u5B57\u6570\u3092\u8868\u793A").setDesc("\u753B\u9762\u53F3\u4E0B\u306B\u5168\u4F53\u306E\u6587\u5B57\u6570\uFF08\u6539\u884C\u3092\u9664\u304F\uFF09\u3092\u8584\u304F\u8868\u793A\u3057\u307E\u3059\u3002").addToggle(
+      (tg) => tg.setValue(s.showCharCount).onChange(async (v) => {
+        s.showCharCount = v;
+        this.plugin.renderStatus();
+        await this.plugin.saveSettings();
+      })
+    );
     new import_obsidian.Setting(containerEl).setName("\u30BF\u30A4\u30D7\u97F3").setHeading();
     new import_obsidian.Setting(containerEl).setName("\u30BF\u30A4\u30D7\u97F3\u3092\u9CF4\u3089\u3059").setDesc("\u30AA\u30D5\u306B\u3059\u308B\u3068\u4EE5\u4E0B\u306E\u9805\u76EE\u306F\u7121\u52B9\u306B\u306A\u308A\u307E\u3059\u3002").addToggle(
       (tg) => tg.setValue(s.keySoundsEnabled).onChange(async (v) => {
@@ -1456,17 +1456,6 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
         this.display();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("BGM\u306E\u30E0\u30FC\u30C9").setDesc("\u300C\u30B7\u30FC\u30F3\u9023\u52D5\u300D\u306F\u30B7\u30FC\u30F3\u306B\u5408\u308F\u305B\u3066\u81EA\u52D5\u3067\u9078\u3073\u307E\u3059\u3002").addDropdown((dd) => {
-      dd.addOption("auto", "\u30B7\u30FC\u30F3\u9023\u52D5");
-      for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) dd.addOption(id, name);
-      dd.setValue(s.bgmMood).onChange(async (v) => {
-        s.bgmMood = v;
-        if (this.plugin.bgm.playing) {
-          this.plugin.bgm.switchMood(this.plugin.effectiveMood());
-        }
-        await this.plugin.saveSettings();
-      });
-    }).setDisabled(!s.bgmEnabled);
     new import_obsidian.Setting(containerEl).setName("BGM\u306E\u97F3\u91CF").addSlider(
       (sl) => sl.setLimits(0, 100, 1).setValue(Math.round(s.bgmVolume * 100)).setDynamicTooltip().onChange(async (v) => {
         s.bgmVolume = v / 100;
@@ -1531,6 +1520,8 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     this.particles = new ParticleLayer();
     this.sky = new SkyCycle();
     this.panel = new ZenPanel(this);
+    this.statusEl = null;
+    this.status = { line: 1, lines: 1, chars: 0 };
   }
   async onload() {
     await this.loadSettings();
@@ -1573,6 +1564,7 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
       }
     });
     this.registerEditorExtension(this.typewriterExtension());
+    this.registerEditorExtension(this.statusExtension());
     this.addSettingTab(new ImmersiveWriterSettingTab(this.app, this));
   }
   onunload() {
@@ -1593,12 +1585,14 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     this.applyAmbience(scene);
     if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(this.effectiveMood());
     this.panel.show();
+    this.showStatus();
     this.engine.resume();
   }
   exitZen() {
     if (!this.zen.active) return;
     this.zen.exit();
     this.panel.hide();
+    this.hideStatus();
     this.sky.stop();
     this.particles.stop();
     this.bgm.stop();
@@ -1611,9 +1605,7 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     if (this.zen.active) {
       this.zen.applyScene(scene.id);
       this.applyAmbience(scene);
-      if (this.bgm.playing && this.settings.bgmMood === "auto") {
-        this.bgm.switchMood(scene.mood);
-      }
+      if (this.bgm.playing) this.bgm.switchMood(scene.mood);
     }
     this.panel.refresh();
     if (notify) new import_obsidian2.Notice(`\u30B7\u30FC\u30F3: ${scene.name}`);
@@ -1642,9 +1634,9 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
       new import_obsidian2.Notice("BGM\u3092\u518D\u751F\u3057\u307E\u3059");
     }
   }
-  /** BGMのムード設定（シーン連動 or 固定）を実際のムードに解決する */
+  /** BGMの曲調は常にシーンに固定 */
   effectiveMood() {
-    return this.settings.bgmMood === "auto" ? getScene(this.settings.sceneId).mood : this.settings.bgmMood;
+    return getScene(this.settings.sceneId).mood;
   }
   /** BGMのON/OFF。オンにすると（没入モード中なら）すぐ再生が始まる */
   async setBgmEnabled(on) {
@@ -1658,15 +1650,6 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
   async setKeySoundsEnabled(on) {
     this.settings.keySoundsEnabled = on;
     if (on) this.keySounds.play("key", "KeyA");
-    await this.saveSettings();
-    this.panel.refresh();
-  }
-  /** パネルからのBGMムード切り替え */
-  async setBgmChoice(choice) {
-    this.settings.bgmMood = choice;
-    const mood = this.effectiveMood();
-    if (this.bgm.playing) this.bgm.switchMood(mood);
-    else if (this.settings.bgmEnabled && this.zen.active) this.bgm.start(mood);
     await this.saveSettings();
     this.panel.refresh();
   }
@@ -1704,6 +1687,58 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
     st.setProperty("--iw-line-height", String(s.lineHeight));
     st.setProperty("--iw-editor-width", `${s.editorWidth}rem`);
     st.setProperty("--iw-vignette", String(s.vignette));
+  }
+  // ---- 右下のステータス表示（行数・文字数） ----
+  showStatus() {
+    this.hideStatus();
+    this.statusEl = document.body.createDiv({ cls: "immersive-writer-status" });
+    const init = this.computeStatusFromActiveEditor();
+    if (init) this.status = init;
+    this.renderStatus();
+  }
+  hideStatus() {
+    var _a;
+    (_a = this.statusEl) == null ? void 0 : _a.remove();
+    this.statusEl = null;
+  }
+  /** 現在の設定と値でステータス表示を描き直す（設定タブからも呼ばれる） */
+  renderStatus() {
+    if (!this.statusEl) return;
+    const parts = [];
+    if (this.settings.showLineCount) {
+      parts.push(`\u884C\u6570: ${this.status.line} / ${this.status.lines}`);
+    }
+    if (this.settings.showCharCount) {
+      parts.push(`\u6587\u5B57\u6570: ${this.status.chars.toLocaleString("ja-JP")}`);
+    }
+    this.statusEl.setText(parts.join("\u3000"));
+  }
+  /** 没入モード入場時の初期値。以後の更新はCodeMirror拡張が担う */
+  computeStatusFromActiveEditor() {
+    const md = this.app.workspace.getActiveViewOfType(import_obsidian2.MarkdownView);
+    if (!md) return null;
+    const editor = md.editor;
+    return {
+      line: editor.getCursor().line + 1,
+      lines: editor.lineCount(),
+      chars: editor.getValue().replace(/\n/g, "").length
+    };
+  }
+  /** 打鍵・カーソル移動のたびに行数・文字数を更新するCodeMirror拡張 */
+  statusExtension() {
+    return import_view.EditorView.updateListener.of((update) => {
+      if (!this.zen.active || !this.statusEl) return;
+      if (!update.docChanged && !update.selectionSet) return;
+      if (!update.view.hasFocus) return;
+      const state = update.view.state;
+      this.status = {
+        line: state.doc.lineAt(state.selection.main.head).number,
+        lines: state.doc.lines,
+        // 改行を除いた文字数
+        chars: state.doc.length - (state.doc.lines - 1)
+      };
+      this.renderStatus();
+    });
   }
   /** 入力した行を画面中央に保つCodeMirror拡張（没入モード中のみ動く） */
   typewriterExtension() {

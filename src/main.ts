@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { MarkdownView, Notice, Plugin } from "obsidian";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { AudioEngine } from "./audio/engine";
 import { KEY_SCHEMES, KeyKind, KeySchemeId, KeySoundPlayer } from "./audio/keySounds";
@@ -27,6 +27,8 @@ export default class ImmersiveWriterPlugin extends Plugin {
 	sky = new SkyCycle();
 	panel = new ZenPanel(this);
 	zen!: ZenController;
+	private statusEl: HTMLElement | null = null;
+	private status = { line: 1, lines: 1, chars: 0 };
 
 	async onload(): Promise<void> {
 		await this.loadSettings();
@@ -75,6 +77,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		});
 
 		this.registerEditorExtension(this.typewriterExtension());
+		this.registerEditorExtension(this.statusExtension());
 		this.addSettingTab(new ImmersiveWriterSettingTab(this.app, this));
 	}
 
@@ -99,6 +102,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		this.applyAmbience(scene);
 		if (this.settings.bgmEnabled && !this.bgm.playing) this.bgm.start(this.effectiveMood());
 		this.panel.show();
+		this.showStatus();
 		this.engine.resume();
 	}
 
@@ -106,6 +110,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		if (!this.zen.active) return;
 		this.zen.exit();
 		this.panel.hide();
+		this.hideStatus();
 		this.sky.stop();
 		this.particles.stop();
 		this.bgm.stop();
@@ -119,10 +124,8 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		if (this.zen.active) {
 			this.zen.applyScene(scene.id);
 			this.applyAmbience(scene);
-			// BGMがシーン連動のときだけムードを追従させる
-			if (this.bgm.playing && this.settings.bgmMood === "auto") {
-				this.bgm.switchMood(scene.mood);
-			}
+			// BGMはシーンに追従する
+			if (this.bgm.playing) this.bgm.switchMood(scene.mood);
 		}
 		this.panel.refresh();
 		if (notify) new Notice(`シーン: ${scene.name}`);
@@ -156,11 +159,9 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		}
 	}
 
-	/** BGMのムード設定（シーン連動 or 固定）を実際のムードに解決する */
+	/** BGMの曲調は常にシーンに固定 */
 	effectiveMood(): BgmMoodId {
-		return this.settings.bgmMood === "auto"
-			? getScene(this.settings.sceneId).mood
-			: this.settings.bgmMood;
+		return getScene(this.settings.sceneId).mood;
 	}
 
 	/** BGMのON/OFF。オンにすると（没入モード中なら）すぐ再生が始まる */
@@ -176,16 +177,6 @@ export default class ImmersiveWriterPlugin extends Plugin {
 	async setKeySoundsEnabled(on: boolean): Promise<void> {
 		this.settings.keySoundsEnabled = on;
 		if (on) this.keySounds.play("key", "KeyA");
-		await this.saveSettings();
-		this.panel.refresh();
-	}
-
-	/** パネルからのBGMムード切り替え */
-	async setBgmChoice(choice: "auto" | BgmMoodId): Promise<void> {
-		this.settings.bgmMood = choice;
-		const mood = this.effectiveMood();
-		if (this.bgm.playing) this.bgm.switchMood(mood);
-		else if (this.settings.bgmEnabled && this.zen.active) this.bgm.start(mood);
 		await this.saveSettings();
 		this.panel.refresh();
 	}
@@ -228,6 +219,63 @@ export default class ImmersiveWriterPlugin extends Plugin {
 		st.setProperty("--iw-line-height", String(s.lineHeight));
 		st.setProperty("--iw-editor-width", `${s.editorWidth}rem`);
 		st.setProperty("--iw-vignette", String(s.vignette));
+	}
+
+	// ---- 右下のステータス表示（行数・文字数） ----
+
+	private showStatus(): void {
+		this.hideStatus();
+		this.statusEl = document.body.createDiv({ cls: "immersive-writer-status" });
+		const init = this.computeStatusFromActiveEditor();
+		if (init) this.status = init;
+		this.renderStatus();
+	}
+
+	private hideStatus(): void {
+		this.statusEl?.remove();
+		this.statusEl = null;
+	}
+
+	/** 現在の設定と値でステータス表示を描き直す（設定タブからも呼ばれる） */
+	renderStatus(): void {
+		if (!this.statusEl) return;
+		const parts: string[] = [];
+		if (this.settings.showLineCount) {
+			parts.push(`行数: ${this.status.line} / ${this.status.lines}`);
+		}
+		if (this.settings.showCharCount) {
+			parts.push(`文字数: ${this.status.chars.toLocaleString("ja-JP")}`);
+		}
+		this.statusEl.setText(parts.join("　"));
+	}
+
+	/** 没入モード入場時の初期値。以後の更新はCodeMirror拡張が担う */
+	private computeStatusFromActiveEditor(): { line: number; lines: number; chars: number } | null {
+		const md = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!md) return null;
+		const editor = md.editor;
+		return {
+			line: editor.getCursor().line + 1,
+			lines: editor.lineCount(),
+			chars: editor.getValue().replace(/\n/g, "").length,
+		};
+	}
+
+	/** 打鍵・カーソル移動のたびに行数・文字数を更新するCodeMirror拡張 */
+	private statusExtension() {
+		return EditorView.updateListener.of((update: ViewUpdate) => {
+			if (!this.zen.active || !this.statusEl) return;
+			if (!update.docChanged && !update.selectionSet) return;
+			if (!update.view.hasFocus) return;
+			const state = update.view.state;
+			this.status = {
+				line: state.doc.lineAt(state.selection.main.head).number,
+				lines: state.doc.lines,
+				// 改行を除いた文字数
+				chars: state.doc.length - (state.doc.lines - 1),
+			};
+			this.renderStatus();
+		});
 	}
 
 	/** 入力した行を画面中央に保つCodeMirror拡張（没入モード中のみ動く） */

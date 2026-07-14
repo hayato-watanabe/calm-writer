@@ -65,13 +65,6 @@ const MOODS: Record<BgmMoodId, MoodDef> = {
 	},
 };
 
-/** パネルや設定画面で使うムードの表示名 */
-export const BGM_MOOD_NAMES: Record<BgmMoodId, string> = {
-	aurora: "オーロラ",
-	night: "夜",
-	forest: "森",
-	calm: "凪",
-};
 
 interface Voice {
 	gain: GainNode;

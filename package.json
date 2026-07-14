@@ -1,6 +1,6 @@
 {
 	"name": "immersive-writer",
-	"version": "0.7.1",
+	"version": "0.8.0",
 	"description": "OmmWriter-inspired immersive writing mode for Obsidian: typing sounds, ambient BGM, beautiful zen backgrounds, and readable typography.",
 	"main": "main.js",
 	"scripts": {

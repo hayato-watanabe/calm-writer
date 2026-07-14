@@ -1,6 +1,5 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import { KEY_SCHEMES, KeySchemeId } from "./audio/keySounds";
-import { BGM_MOOD_NAMES, BgmMoodId } from "./audio/bgm";
 import { SCENES } from "./ambience/scenes";
 import type ImmersiveWriterPlugin from "./main";
 
@@ -16,8 +15,9 @@ export interface ImmersiveWriterSettings {
 	keySoundScheme: KeySchemeId;
 	keySoundVolume: number; // 0..1
 	bgmEnabled: boolean;
-	bgmMood: "auto" | BgmMoodId; // auto = シーン連動
 	bgmVolume: number; // 0..1
+	showLineCount: boolean;
+	showCharCount: boolean;
 	fontPreset: string;
 	customFont: string;
 	fontSize: number; // px
@@ -37,8 +37,9 @@ export const DEFAULT_SETTINGS: ImmersiveWriterSettings = {
 	keySoundScheme: "drop",
 	keySoundVolume: 0.5,
 	bgmEnabled: true,
-	bgmMood: "auto",
 	bgmVolume: 0.4,
+	showLineCount: true,
+	showCharCount: true,
 	fontPreset: "",
 	customFont: "",
 	fontSize: 20,
@@ -135,6 +136,28 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 				})
 			);
 
+		new Setting(containerEl)
+			.setName("行数を表示")
+			.setDesc("画面右下に「行数: 現在行 / 全体行」を薄く表示します。")
+			.addToggle((tg) =>
+				tg.setValue(s.showLineCount).onChange(async (v) => {
+					s.showLineCount = v;
+					this.plugin.renderStatus();
+					await this.plugin.saveSettings();
+				})
+			);
+
+		new Setting(containerEl)
+			.setName("文字数を表示")
+			.setDesc("画面右下に全体の文字数（改行を除く）を薄く表示します。")
+			.addToggle((tg) =>
+				tg.setValue(s.showCharCount).onChange(async (v) => {
+					s.showCharCount = v;
+					this.plugin.renderStatus();
+					await this.plugin.saveSettings();
+				})
+			);
+
 		// ---- タイプ音 ----
 		new Setting(containerEl).setName("タイプ音").setHeading();
 
@@ -208,22 +231,6 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 					this.display(); // 依存項目の活性状態を更新
 				})
 			);
-
-		new Setting(containerEl)
-			.setName("BGMのムード")
-			.setDesc("「シーン連動」はシーンに合わせて自動で選びます。")
-			.addDropdown((dd) => {
-				dd.addOption("auto", "シーン連動");
-				for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) dd.addOption(id, name);
-				dd.setValue(s.bgmMood).onChange(async (v) => {
-					s.bgmMood = v as ImmersiveWriterSettings["bgmMood"];
-					if (this.plugin.bgm.playing) {
-						this.plugin.bgm.switchMood(this.plugin.effectiveMood());
-					}
-					await this.plugin.saveSettings();
-				});
-			})
-			.setDisabled(!s.bgmEnabled);
 
 		new Setting(containerEl)
 			.setName("BGMの音量")

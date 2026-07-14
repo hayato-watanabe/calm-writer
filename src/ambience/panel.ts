@@ -1,5 +1,4 @@
 import { SCENES } from "./scenes";
-import { BGM_MOOD_NAMES, BgmMoodId } from "../audio/bgm";
 import { KEY_SCHEMES, KeySchemeId } from "../audio/keySounds";
 import type ImmersiveWriterPlugin from "../main";
 
@@ -28,17 +27,10 @@ export class ZenPanel {
 			});
 		}
 
-		const bgm = this.section(body, "BGM", "bgm", (on) => {
+		// BGMはON/OFFのみ。曲調は常にシーンに固定
+		this.section(body, "BGM", "bgm", (on) => {
 			void this.plugin.setBgmEnabled(on);
 		});
-		this.option(bgm, "シーン連動", "bgm", "auto", () => {
-			void this.plugin.setBgmChoice("auto");
-		});
-		for (const [id, name] of Object.entries(BGM_MOOD_NAMES)) {
-			this.option(bgm, name, "bgm", id, () => {
-				void this.plugin.setBgmChoice(id as BgmMoodId);
-			});
-		}
 
 		const keys = this.section(body, "打鍵音", "key", (on) => {
 			void this.plugin.setKeySoundsEnabled(on);
@@ -79,7 +71,6 @@ export class ZenPanel {
 
 		const active: Record<string, string> = {
 			scene: s.sceneId,
-			bgm: s.bgmMood,
 			key: s.keySoundScheme,
 		};
 		const options = this.root.querySelectorAll<HTMLButtonElement>(".immersive-writer-panel-option");
