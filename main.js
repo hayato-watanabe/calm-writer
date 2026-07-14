@@ -1045,9 +1045,10 @@ var SkyCycle = class {
     let moonAlpha = 0;
     if (h >= MOON_START && h <= MOON_END) {
       const q = (h - MOON_START) / (MOON_END - MOON_START);
-      moonX = 0.14 + 0.72 * q;
-      moonY = 0.13 - 0.06 * Math.sin(Math.PI * q);
-      const setFade = Math.min(1, (1 - q) / 0.07);
+      moonX = 0.12 + 0.94 * q;
+      const setting = Math.max(0, (q - 0.82) / 0.18);
+      moonY = 0.13 - 0.06 * Math.sin(Math.PI * Math.min(q / 0.82, 1)) + 0.09 * setting * setting;
+      const setFade = Math.min(1, (1 - q) / 0.08);
       moonAlpha = (0.22 + 0.7 * star) * setFade;
     }
     this.state = { starAlpha: star, moonX, moonY, moonAlpha };

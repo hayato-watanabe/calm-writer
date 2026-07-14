@@ -144,15 +144,17 @@ export class SkyCycle {
 		);
 
 		// 月の運行: 夕暮れからほのかに空にあり、暗くなるほど輝きを増しながら
-		// 画面上端の浅い弧を左から右へ渡り、夜明け前に沈む
+		// 画面上端の浅い弧を左から右へ渡り、夜明け前に画面の右端へ沈んで退場する
 		let moonX = 0;
 		let moonY = 0;
 		let moonAlpha = 0;
 		if (h >= MOON_START && h <= MOON_END) {
 			const q = (h - MOON_START) / (MOON_END - MOON_START);
-			moonX = 0.14 + 0.72 * q;
-			moonY = 0.13 - 0.06 * Math.sin(Math.PI * q);
-			const setFade = Math.min(1, (1 - q) / 0.07); // 沈むときだけフェードアウト
+			moonX = 0.12 + 0.94 * q; // 左上(12%)から右端の外(106%)まで
+			// 終盤(q>0.82)は弧を終えて、下がりながら画面外へすべり出る
+			const setting = Math.max(0, (q - 0.82) / 0.18);
+			moonY = 0.13 - 0.06 * Math.sin(Math.PI * Math.min(q / 0.82, 1)) + 0.09 * setting * setting;
+			const setFade = Math.min(1, (1 - q) / 0.08); // 退場中はゆっくり減光
 			moonAlpha = (0.22 + 0.7 * star) * setFade;
 		}
 
