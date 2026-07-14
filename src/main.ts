@@ -187,7 +187,7 @@ export default class ImmersiveWriterPlugin extends Plugin {
 			this.settings.keySoundsEnabled = true;
 			this.settings.keySoundScheme = choice;
 			this.applyAudioSettings();
-			this.keySounds.play("key");
+			this.keySounds.play("key", "KeyA"); // 母音扱いで試聴
 		}
 		await this.saveSettings();
 		this.panel.refresh();

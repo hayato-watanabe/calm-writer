@@ -101,9 +101,22 @@ var AudioEngine = class {
 // src/audio/keySounds.ts
 var KEY_SCHEMES = {
   drop: "\u6C34\u6EF4",
+  drop2: "\u6C34\u6EF42\uFF08\u6BCD\u97F3\uFF09",
   typewriter: "\u30BF\u30A4\u30D7\u30E9\u30A4\u30BF\u30FC",
   marimba: "\u6728\u7434",
   soft: "\u30BD\u30D5\u30C8"
+};
+var VOWEL_DROP_SIZES = {
+  KeyA: 0.8,
+  // あ: 大きくひらいた滴
+  KeyI: 0.1,
+  // い: 小さく高い
+  KeyU: 0.6,
+  // う: ややこもる
+  KeyE: 0.35,
+  // え: 中くらいでやや高め
+  KeyO: 0.95
+  // お: いちばん丸く低い
 };
 var MIN_INTERVAL_MS = 40;
 var MARIMBA_SCALE = [
@@ -195,6 +208,9 @@ var KeySoundPlayer = class {
       case "drop":
         this.playDrop(kind, level);
         break;
+      case "drop2":
+        this.playDrop2(kind, level, code);
+        break;
       case "typewriter":
         this.playTypewriter(kind, level);
         break;
@@ -247,6 +263,28 @@ var KeySoundPlayer = class {
     } else {
       this.dropTick(kind, level);
     }
+  }
+  /**
+   * 水滴2: 母音キー(A/I/U/E/O)だけが滴を落とす。
+   * 母音ごとに滴の大きさが決まっていて（あ=大粒、い=小粒…）、
+   * 子音は沈黙するので、ことばの母音のリズムだけが残る。
+   */
+  playDrop2(kind, level, code) {
+    if (kind === "enter" || kind === "return") {
+      this.fallDrop(rand(0.8, 1), 0.55, 0.26, level);
+      return;
+    }
+    if (kind === "space") {
+      this.fallDrop(rand(0.5, 0.7), 0.62, 0.2, level);
+      return;
+    }
+    if (kind === "delete") {
+      this.fallDrop(rand(0.05, 0.2), 1, 0.13, level);
+      return;
+    }
+    const size = code !== void 0 ? VOWEL_DROP_SIZES[code] : void 0;
+    if (size === void 0) return;
+    this.fallDrop(Math.max(0, Math.min(1, size + rand(-0.07, 0.07))), 1, 0.22, level);
   }
   /** 1滴の落下音。size (0=小粒, 1=大粒) から音程・長さ・共鳴を連動させる */
   fallDrop(size, freqScale, peak, level) {
@@ -1338,7 +1376,7 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
       dd.setValue(s.keySoundScheme).onChange(async (v) => {
         s.keySoundScheme = v;
         this.plugin.applyAudioSettings();
-        this.plugin.keySounds.play("key");
+        this.plugin.keySounds.play("key", "KeyA");
         await this.plugin.saveSettings();
       });
     });
@@ -1346,7 +1384,7 @@ var ImmersiveWriterSettingTab = class extends import_obsidian.PluginSettingTab {
       (sl) => sl.setLimits(0, 100, 1).setValue(Math.round(s.keySoundVolume * 100)).setDynamicTooltip().onChange(async (v) => {
         s.keySoundVolume = v / 100;
         this.plugin.applyAudioSettings();
-        this.plugin.keySounds.play("key");
+        this.plugin.keySounds.play("key", "KeyA");
         await this.plugin.saveSettings();
       })
     );
@@ -1570,7 +1608,7 @@ var ImmersiveWriterPlugin = class extends import_obsidian2.Plugin {
       this.settings.keySoundsEnabled = true;
       this.settings.keySoundScheme = choice;
       this.applyAudioSettings();
-      this.keySounds.play("key");
+      this.keySounds.play("key", "KeyA");
     }
     await this.saveSettings();
     this.panel.refresh();

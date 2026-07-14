@@ -165,7 +165,7 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 				dd.setValue(s.keySoundScheme).onChange(async (v) => {
 					s.keySoundScheme = v as KeySchemeId;
 					this.plugin.applyAudioSettings();
-					this.plugin.keySounds.play("key");
+					this.plugin.keySounds.play("key", "KeyA"); // 母音扱いで試聴
 					await this.plugin.saveSettings();
 				});
 			});
@@ -180,7 +180,7 @@ export class ImmersiveWriterSettingTab extends PluginSettingTab {
 					.onChange(async (v) => {
 						s.keySoundVolume = v / 100;
 						this.plugin.applyAudioSettings();
-						this.plugin.keySounds.play("key");
+						this.plugin.keySounds.play("key", "KeyA"); // 母音扱いで試聴
 						await this.plugin.saveSettings();
 					})
 			);

@@ -3,13 +3,27 @@ import { AudioEngine } from "./engine";
 /** キーの種類。種類ごとに音色を変える。enter=IME確定など、return=実際の改行 */
 export type KeyKind = "key" | "space" | "enter" | "return" | "delete";
 
-export type KeySchemeId = "drop" | "typewriter" | "marimba" | "soft";
+export type KeySchemeId = "drop" | "drop2" | "typewriter" | "marimba" | "soft";
 
 export const KEY_SCHEMES: Record<KeySchemeId, string> = {
 	drop: "水滴",
+	drop2: "水滴2（母音）",
 	typewriter: "タイプライター",
 	marimba: "木琴",
 	soft: "ソフト",
+};
+
+/**
+ * 水滴2: 母音キーごとの滴の大きさ (0=小粒・高い音, 1=大粒・低い音)。
+ * 口の開きの大きさをそのまま滴の大きさに写像している。
+ * ローマ字入力では1モーラに母音が1つ入るので、ことばのリズムで滴が落ちる。
+ */
+const VOWEL_DROP_SIZES: Record<string, number> = {
+	KeyA: 0.8, // あ: 大きくひらいた滴
+	KeyI: 0.1, // い: 小さく高い
+	KeyU: 0.6, // う: ややこもる
+	KeyE: 0.35, // え: 中くらいでやや高め
+	KeyO: 0.95, // お: いちばん丸く低い
 };
 
 /** キーリピート時の連射を抑える最小間隔 */
@@ -80,6 +94,9 @@ export class KeySoundPlayer {
 			case "drop":
 				this.playDrop(kind, level);
 				break;
+			case "drop2":
+				this.playDrop2(kind, level, code);
+				break;
 			case "typewriter":
 				this.playTypewriter(kind, level);
 				break;
@@ -138,6 +155,29 @@ export class KeySoundPlayer {
 		} else {
 			this.dropTick(kind, level);
 		}
+	}
+
+	/**
+	 * 水滴2: 母音キー(A/I/U/E/O)だけが滴を落とす。
+	 * 母音ごとに滴の大きさが決まっていて（あ=大粒、い=小粒…）、
+	 * 子音は沈黙するので、ことばの母音のリズムだけが残る。
+	 */
+	private playDrop2(kind: KeyKind, level: number, code?: string): void {
+		if (kind === "enter" || kind === "return") {
+			this.fallDrop(rand(0.8, 1), 0.55, 0.26, level); // 行の締めの大粒
+			return;
+		}
+		if (kind === "space") {
+			this.fallDrop(rand(0.5, 0.7), 0.62, 0.2, level); // 変換・区切りのやわらかい滴
+			return;
+		}
+		if (kind === "delete") {
+			this.fallDrop(rand(0.05, 0.2), 1, 0.13, level); // 削除は小さく控えめ
+			return;
+		}
+		const size = code !== undefined ? VOWEL_DROP_SIZES[code] : undefined;
+		if (size === undefined) return; // 子音・記号は沈黙
+		this.fallDrop(Math.max(0, Math.min(1, size + rand(-0.07, 0.07))), 1, 0.22, level);
 	}
 
 	/** 1滴の落下音。size (0=小粒, 1=大粒) から音程・長さ・共鳴を連動させる */
